@@ -27,9 +27,11 @@ Connections
 I have been running on Rasperry Pi, a stock install is sufficient.
 
 **Virtual mode**
+
 ~/python_environment/bin/python3 fastnet2ip.py --file raw_fastnet_data.txt -u 2002 --log-level ERROR
 
 **Real mode**
+
 ~/python_environment/bin/python3 fastnet2ip.py --serial /dev/ttyUSB0 -u 2002 --log-level ERROR
 
 if using the Waveshare CAN HAT add this to /boot/firmware/config.txt
