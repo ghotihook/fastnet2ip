@@ -37,6 +37,8 @@ I have been running on Rasperry Pi, a stock install is sufficient.
 if using the Waveshare CAN HAT add this to /boot/firmware/config.txt
 dtoverlay=mcp2515-can0,oscillator=12000000,interrupt=25,spimaxfrequency=2000000
 
+## Watchdog
+If being run at startup, the fastnet2ip_wd.sh can be used as a robust way to keep it running.
 
 ## Approach
 This is the approximate approach
