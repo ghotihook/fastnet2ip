@@ -7,7 +7,7 @@ import socket
 #import logging  # Ensure logging is imported
 
 from datetime import datetime
-from fastnet_decoder import FrameBuffer, logger, set_log_level, get_buffer_size
+from fastnet_decoder import FrameBuffer, logger, set_log_level
 
 
 
