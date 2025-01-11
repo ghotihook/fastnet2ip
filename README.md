@@ -41,6 +41,9 @@ if using a Waveshare CAN HAT add this to /boot/firmware/config.txt
 ```~/python_environment/bin/python3 fastnet2ip.py --serial /dev/ttyUSB0 -u 2002 --log-level ERROR```
 
 
+![Example console output](images/console_output.jpg "Fastnet System Overview")
+
+
 ## Watchdog
 If being run at startup, the fastnet2ip_wd.sh can be used as a robust way to keep it running executed from /etc/rc.local
 
