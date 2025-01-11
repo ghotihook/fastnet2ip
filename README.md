@@ -30,6 +30,8 @@ if using a Waveshare CAN HAT add this to /boot/firmware/config.txt
 
 ```dtoverlay=mcp2515-can0,oscillator=12000000,interrupt=25,spimaxfrequency=2000000```
 
+I have found the USB dongle works out of the box.
+
 ## Running
 
 **Virtual mode - txt file input**
