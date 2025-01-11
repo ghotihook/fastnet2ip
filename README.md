@@ -23,20 +23,22 @@ Connections
 - **Stop Bits**: 2
 
 I have been running on Rasperry Pi, a stock install is sufficient.
+
 ```pip3 install pyfastnet```
 
 if using a Waveshare CAN HAT add this to /boot/firmware/config.txt
+
 ```dtoverlay=mcp2515-can0,oscillator=12000000,interrupt=25,spimaxfrequency=2000000```
 
 ## Running
 
 **Virtual mode - txt file input**
 
-~/python_environment/bin/python3 fastnet2ip.py --file raw_fastnet_data.txt -u 2002 --log-level ERROR
+```~/python_environment/bin/python3 fastnet2ip.py --file raw_fastnet_data.txt -u 2002 --log-level ERROR```
 
 **Real mode - serial port input**
 
-~/python_environment/bin/python3 fastnet2ip.py --serial /dev/ttyUSB0 -u 2002 --log-level ERROR
+```~/python_environment/bin/python3 fastnet2ip.py --serial /dev/ttyUSB0 -u 2002 --log-level ERROR```
 
 
 ## Watchdog
