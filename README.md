@@ -6,7 +6,7 @@ This code listens for fastnet data on the bus, interprets the message and then b
 This is the companion app to the library [pyfastnet](https://github.com/ghotihook/pyfastnet)
 
 
-## Physical Layer
+## Installation
 
 Fastnet uses two-wire differential transmission and I have had success using RS-485/CAN bus connections. The CAN Hat has the option to enable 120ohm teminations which I am using.
 
@@ -22,23 +22,25 @@ Connections
 - **Parity**: Odd
 - **Stop Bits**: 2
 
+I have been running on Rasperry Pi, a stock install is sufficient.
+```pip3 install pyfastnet```
+
+if using a Waveshare CAN HAT add this to /boot/firmware/config.txt
+```dtoverlay=mcp2515-can0,oscillator=12000000,interrupt=25,spimaxfrequency=2000000```
 
 ## Running
-I have been running on Rasperry Pi, a stock install is sufficient.
 
-**Virtual mode**
+**Virtual mode - txt file input**
 
 ~/python_environment/bin/python3 fastnet2ip.py --file raw_fastnet_data.txt -u 2002 --log-level ERROR
 
-**Real mode**
+**Real mode - serial port input**
 
 ~/python_environment/bin/python3 fastnet2ip.py --serial /dev/ttyUSB0 -u 2002 --log-level ERROR
 
-if using the Waveshare CAN HAT add this to /boot/firmware/config.txt
-dtoverlay=mcp2515-can0,oscillator=12000000,interrupt=25,spimaxfrequency=2000000
 
 ## Watchdog
-If being run at startup, the fastnet2ip_wd.sh can be used as a robust way to keep it running.
+If being run at startup, the fastnet2ip_wd.sh can be used as a robust way to keep it running executed from /etc/rc.local
 
 ## Approach
 This is the approximate approach
