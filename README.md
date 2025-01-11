@@ -46,7 +46,7 @@ if using a Waveshare CAN HAT add this to /boot/firmware/config.txt
 - RSA (Rudder Angle)
 - XDR (Battery Voltage - Tagging = Main)
 - MWD (True Wind Direction)
-- MWD (True Wind Angle)
+- MWD (True Wind Angle / Speed)
 - MWV (Apparent Wind Angle / Speed)
 - MTW (Sea Temperature)
 - HDG (Heading)
