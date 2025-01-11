@@ -70,7 +70,8 @@ This is the approximate approach
 
 ## Bench Testing
 Record and playback of live data. I use this to capture live data from the boat so I can play it back offline for testing
-- use record_fn.py to capture raw FN data into a .txt file, no processing is done, it captures the raw data, this can be played back via the fastnet2ip.py using the --file option
+- use record_fn.py to capture raw Fastnet data into a .txt file, no processing is done, it captures the raw data. To use this you will need to edit the serial port address in the .py file.
+- Recorded data can be played back using fastnet2ip.py using the --file option
 
 Given the differential nature of the connection, loopback if not feasable. Seperate transmit and receive ports required for physical bench testing.
 
