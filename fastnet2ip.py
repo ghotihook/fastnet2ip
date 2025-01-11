@@ -7,7 +7,7 @@ import socket
 #import logging  # Ensure logging is imported
 
 from datetime import datetime
-from fastnet_decoder import FrameBuffer, logger, set_log_level
+from fastnet_decoder import FrameBuffer, logger, set_log_level, get_buffer_size
 
 
 
@@ -303,6 +303,7 @@ def print_live_data():
                     row = f"{channel_name:<30} {channel_id:<12} {value:<25} {timestamp:<30}"
                     print(row)
 
+                print("Buffer Size:", frame_buffer.get_buffer_size())  # Output: Buffer Size: X
                 print("\n")  # Add a blank line for readability
 
         time.sleep(1)  # Print live data every second
