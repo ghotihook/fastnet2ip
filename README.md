@@ -40,6 +40,20 @@ if using a Waveshare CAN HAT add this to /boot/firmware/config.txt
 
 ```~/python_environment/bin/python3 fastnet2ip.py --serial /dev/ttyUSB0 -u 2002 --log-level ERROR```
 
+**Support NMEA messages**
+- VHW (Boatspeed)
+- DBT (Depth)
+- RSA (Rudder Angle)
+- XDR (Battery Voltage - Tagging = Main)
+- MWD (True Wind Direction)
+- MWD (True Wind Angle)
+- MWV (Apparent Wind Angle / Speed)
+- MTW (Sea Temperature)
+- HDG (Heading)
+- VTG (COG and SOG)
+- GLL (Lat/Lon)
+
+**Console output**
 
 ![Example console output](images/console_output.jpg "Fastnet System Overview")
 
