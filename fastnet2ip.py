@@ -93,7 +93,7 @@ def process_heading_nmea(heading):
 def process_cog_sog_nmea(sog):
     cog = get_live_data("Course Over Ground (Mag)")
     # Construct the VTG NMEA sentence
-    vtg_sentence = f"IIVTG,,T,{cog:.1f},M,{sog:.1f},N,,K"
+    vtg_sentence = f"IIVTG,,,{cog:.1f},M,{sog:.1f},N,,K"
     vtg_sentence = f"${vtg_sentence}*{calculate_nmea_checksum(vtg_sentence)}\n"
     output_queue.put(vtg_sentence)
     logger.debug(f"VTG NMEA sentence added: {vtg_sentence.strip()}")
