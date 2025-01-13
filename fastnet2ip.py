@@ -59,7 +59,7 @@ def trigger_custom_shift_xdr():
     smoothed_twd = time_weighted_ema(timestamps, twd_values)
 
     deviation = angular_difference(twd_values[-1], smoothed_twd)
-    print(f"Deviation from mean: {deviation:.2f}° (current TWD: {twd_values[-1]:.2f}°, smoothed TWD: {smoothed_twd:.2f}°)")
+    logger.error(f"Deviation from mean: {deviation:.2f}° (current TWD: {twd_values[-1]:.2f}°, smoothed TWD: {smoothed_twd:.2f}°)")
 
     xdr_sentence = f"IIXDR,A,{deviation:.2f},D,SHIFT"
     xdr_sentence = f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
