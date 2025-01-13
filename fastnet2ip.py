@@ -63,10 +63,6 @@ def angular_difference(angle1, angle2):
     diff = (angle1 - angle2 + 180) % 360 - 180
     return diff
 
-# Example Usage
-sample_twd_data = [310, 312, 315, 318, 320, 325, 330, 335, 5, 10, 15]
-
-
 
 def trigger_custom_bsp_xdr():
     bsp = get_live_data("Boatspeed (Knots)")
@@ -122,6 +118,7 @@ def process_twd_nmea(twd):
     mwd_sentence = f"${mwd_sentence}*{calculate_nmea_checksum(mwd_sentence)}\n"
     output_queue.put(mwd_sentence)
     logger.debug(f"Magnetic True Wind Direction NMEA MWD sentence added: {mwd_sentence.strip()}")
+    trigger_custom_shift_xdr()
 
 def process_twa_tws_nmea(tws):
     twa = get_live_data("True Wind Angle")
