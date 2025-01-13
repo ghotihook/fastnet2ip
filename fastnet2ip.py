@@ -59,7 +59,7 @@ def process_boatspeed_nmea(boatspeed):
     vhw_sentence = f"${vhw_sentence}*{calculate_nmea_checksum(vhw_sentence)}\n"
     output_queue.put(vhw_sentence)
     logger.debug(f"Boatspeed NMEA VHW sentence added: {vhw_sentence.strip()}")
-    trigger_custom_bsp_xdr()
+    #trigger_custom_bsp_xdr()
 
 def process_depth_nmea(depth):
     dbt_sentence = f"IIDBT,,,{depth:.2f},M,,"
@@ -82,7 +82,7 @@ def process_battery_volts_nmea(battery_volts):
 
 
 def process_twd_nmea(twd):
-    mwd_sentence = f"WIMWD,,T,{twd:.1f},M,,N"
+    mwd_sentence = f"WIMWD,,,{twd:.1f},M,,N"
     mwd_sentence = f"${mwd_sentence}*{calculate_nmea_checksum(mwd_sentence)}\n"
     output_queue.put(mwd_sentence)
     logger.debug(f"Magnetic True Wind Direction NMEA MWD sentence added: {mwd_sentence.strip()}")
