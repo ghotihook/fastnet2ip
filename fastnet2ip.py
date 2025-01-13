@@ -45,7 +45,7 @@ def trigger_custom_bsp_xdr():
         adj_bsp =  bsp - (0.081619 * bsp - 0.737207)
     elif 150 <= twa <= 180:
         adj_bsp =  bsp - (0.119382 * bsp - 0.886838)
-    xdr_sentence = f"IIXDR,S,{adj_bsp:.2f},N,Corrected_BSP"
+    xdr_sentence = f"IIXDR,T,{adj_bsp:.2f},N,Corrected_BSP"
     xdr_sentence = f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
     output_queue.put(xdr_sentence)
     logger.debug(f"Issued custom BSP via XDR {xdr_sentence.strip()}")
