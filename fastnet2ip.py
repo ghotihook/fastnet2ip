@@ -75,7 +75,7 @@ def process_rudder_angle_nmea(rudder_angle):
     logger.debug(f"Rudder Angle NMEA RSA sentence added: {rsa_sentence.strip()}")
 
 def process_battery_volts_nmea(battery_volts):
-    xdr_sentence = f"IIXDR,U,{battery_volts:.2f},V,MAIN"
+    xdr_sentence = f"IIXDR,U,{battery_volts:.2f},V,BATTV"
     xdr_sentence = f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
     output_queue.put(xdr_sentence)
     logger.debug(f"Battery Volts NMEA XDR sentence added: {xdr_sentence.strip()}")
