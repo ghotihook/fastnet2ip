@@ -86,7 +86,6 @@ def process_twd_nmea(twd):
     mwd_sentence = f"${mwd_sentence}*{calculate_nmea_checksum(mwd_sentence)}\n"
     output_queue.put(mwd_sentence)
     logger.debug(f"Magnetic True Wind Direction NMEA MWD sentence added: {mwd_sentence.strip()}")
-    trigger_custom_shift_xdr()
 
 def process_twa_tws_nmea(tws):
     twa = get_live_data("True Wind Angle")
