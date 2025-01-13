@@ -55,11 +55,14 @@ def trigger_custom_bsp_xdr():
 
 # triggers
 def process_boatspeed_nmea(boatspeed):
-    vhw_sentence = f"IIVHW,,,,,{boatspeed:.1f},N,,"
+    hdg_m = get_live_data("Heading")
+    if hdg_m != None:
+        vhw_sentence = f"IIVHW,,,{hdg_m},M,{boatspeed:.1f},N,,"
+    else:
+        vhw_sentence = f"IIVHW,,,,,{boatspeed:.1f},N,,"
     vhw_sentence = f"${vhw_sentence}*{calculate_nmea_checksum(vhw_sentence)}\n"
     output_queue.put(vhw_sentence)
     logger.debug(f"Boatspeed NMEA VHW sentence added: {vhw_sentence.strip()}")
-    #trigger_custom_bsp_xdr()
 
 def process_depth_nmea(depth):
     dbt_sentence = f"IIDBT,,,{depth:.2f},M,,"
