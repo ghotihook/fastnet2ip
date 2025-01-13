@@ -30,55 +30,6 @@ output_queue = queue.Queue(maxsize=1024)
 
 
 ############################################################
-from collections import deque
-from datetime import datetime, timedelta
-import numpy as np
-
-# Configuration
-TIME_WINDOW_MINUTES = 3  # Monitor TWD over a 3-minute window
-alpha = 0.05  # Base smoothing factor for EMA
-
-# Time-based circular buffer
-twd_buffer = deque()
-
-def trigger_custom_shift_xdr():
-    twd = get_live_data("True Wind Direction")  # Replace with actual data source
-    timestamp = datetime.utcnow()
-    twd_buffer.append((timestamp, twd))
-
-    now = datetime.utcnow()
-    while twd_buffer and (now - twd_buffer[0][0]) > timedelta(minutes=TIME_WINDOW_MINUTES):
-        twd_buffer.popleft()
-
-    if len(twd_buffer) < 2:
-        print("Collecting more samples for shift detection...")
-        return
-
-    timestamps, twd_values = zip(*twd_buffer)
-    
-    smoothed_twd = time_weighted_ema(timestamps, twd_values)
-
-    deviation = angular_difference(twd_values[-1], smoothed_twd)
-    logger.error(f"Deviation from mean: {deviation:.2f}° (current TWD: {twd_values[-1]:.2f}°, smoothed TWD: {smoothed_twd:.2f}°)")
-
-    xdr_sentence = f"IIXDR,A,{deviation:.2f},D,SHIFT"
-    xdr_sentence = f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
-    output_queue.put(xdr_sentence)
-    logger.error(f"Issued custom SHIFT via XDR {xdr_sentence.strip()}")
-
-def time_weighted_ema(timestamps, values):
-    ema = values[0]
-    for i in range(1, len(values)):
-        time_diff = (timestamps[i] - timestamps[i - 1]).total_seconds()
-        dynamic_alpha = 1 - np.exp(-alpha * time_diff)  # Time-dependent smoothing factor
-        ema = dynamic_alpha * values[i] + (1 - dynamic_alpha) * ema
-    return ema
-
-def angular_difference(angle1, angle2):
-    diff = (angle1 - angle2 + 180) % 360 - 180
-    return diff
-
-
 
 
 def trigger_custom_bsp_xdr():
