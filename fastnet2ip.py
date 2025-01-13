@@ -29,7 +29,45 @@ output_queue = queue.Queue(maxsize=1024)
 
 
 
-#####################
+############################################################
+from collections import deque
+import numpy as np
+
+# Configuration
+WINDOW_SIZE = 10  # Number of TWD samples for smoothing
+
+# Circular buffer for TWD smoothing
+twd_buffer = deque(maxlen=WINDOW_SIZE)
+
+def trigger_custom_shift_xdr():
+    twd = get_live_data("True Wind Direction")
+    twd_buffer.append(twd)
+    smoothed_twd = circular_mean(list(twd_buffer))
+    deviation = angular_difference(twd, smoothed_twd)
+    xdr_sentence = f"IIXDR,N,{deviation:.2f},N,SHIFT"
+    xdr_sentence = f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
+    output_queue.put(xdr_sentence)
+    logger.debug(f"Issued custom SHIFT via XDR {xdr_sentence.strip()}")
+
+def circular_mean(angles):
+    radians = np.radians(angles)
+    mean_sin = np.mean(np.sin(radians))
+    mean_cos = np.mean(np.cos(radians))
+    mean_angle = np.degrees(np.arctan2(mean_sin, mean_cos))
+    return mean_angle % 360
+
+def angular_difference(angle1, angle2):
+    """
+    Calculate the shortest angular difference (handling 360° wrap-around).
+    """
+    diff = (angle1 - angle2 + 180) % 360 - 180
+    return diff
+
+# Example Usage
+sample_twd_data = [310, 312, 315, 318, 320, 325, 330, 335, 5, 10, 15]
+
+
+
 def trigger_custom_bsp_xdr():
     bsp = get_live_data("Boatspeed (Knots)")
     twa = get_live_data("True Wind Angle")
@@ -49,7 +87,7 @@ def trigger_custom_bsp_xdr():
     xdr_sentence = f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
     output_queue.put(xdr_sentence)
     logger.debug(f"Issued custom BSP via XDR {xdr_sentence.strip()}")
-#########################
+############################################################
 
 # triggers
 def process_boatspeed_nmea(boatspeed):
