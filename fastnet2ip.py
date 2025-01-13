@@ -47,7 +47,7 @@ def trigger_custom_shift_xdr():
     xdr_sentence = f"IIXDR,A,{deviation:.2f},D,SHIFT"
     xdr_sentence = f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
     output_queue.put(xdr_sentence)
-    logger.ERROR(f"Issued custom SHIFT via XDR {xdr_sentence.strip()}")
+    logger.error(f"Issued custom SHIFT via XDR {xdr_sentence.strip()}")
 
 def circular_mean(angles):
     radians = np.radians(angles)
