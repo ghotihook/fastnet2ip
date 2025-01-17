@@ -32,26 +32,6 @@ output_queue = queue.Queue(maxsize=1024)
 ############################################################
 
 
-def trigger_custom_bsp_xdr():
-    bsp = get_live_data("Boatspeed (Knots)")
-    twa = get_live_data("True Wind Angle")
-    if 0 <= twa < 30:
-        adj_bsp =  bsp - (0.262406 * bsp - 1.250698)
-    elif 30 <= twa < 60:
-        adj_bsp =  bsp - (0.196964 * bsp - 0.985428)
-    elif 60 <= twa < 90:
-        adj_bsp =  bsp - (0.107197 * bsp - 0.734614)
-    elif 90 <= twa < 120:
-        adj_bsp =  bsp - (0.041670 * bsp - 0.471928)
-    elif 120 <= twa < 150:
-        adj_bsp =  bsp - (0.081619 * bsp - 0.737207)
-    elif 150 <= twa <= 180:
-        adj_bsp =  bsp - (0.119382 * bsp - 0.886838)
-    xdr_sentence = f"IIXDR,N,{adj_bsp:.2f},N,Corrected_BSP"
-    xdr_sentence = f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
-    output_queue.put(xdr_sentence)
-    logger.debug(f"Issued custom BSP via XDR {xdr_sentence.strip()}")
-############################################################
 
 # triggers
 def process_boatspeed_nmea(boatspeed):
