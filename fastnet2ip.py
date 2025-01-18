@@ -128,7 +128,7 @@ def measured_wind_angle_raw(wind_angle_raw):
     logger.debug(f"Measured Wind Angle NMEA XDR sentence added: {xdr_sentence.strip()}")
 
 def measured_wind_angle_speed(wind_angle_speed):
-    xdr_sentence = f"IIXDR,N,{wind_angle_speed:.2f},V,Wind_A_Raw"
+    xdr_sentence = f"IIXDR,N,{wind_angle_speed:.2f},V,Wind_S_Raw"
     xdr_sentence = f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
     output_queue.put(xdr_sentence)
     logger.debug(f"Measured Wind Speed NMEA XDR sentence added: {xdr_sentence.strip()}")
