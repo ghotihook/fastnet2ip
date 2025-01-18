@@ -121,6 +121,17 @@ def process_gll_nmea(latlon_str):
     output_queue.put(gll_sentence)
     logger.debug(f"GLL NMEA sentence added: {gll_sentence.strip()}")
 
+def measured_wind_angle_raw(wind_angle_raw):
+    xdr_sentence = f"IIXDR,A,{wind_angle_raw:.2f},V,Wind_A_Raw"
+    xdr_sentence = f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
+    output_queue.put(xdr_sentence)
+    logger.debug(f"Measured Wind Angle NMEA XDR sentence added: {xdr_sentence.strip()}")
+
+def measured_wind_angle_speed(wind_angle_speed):
+    xdr_sentence = f"IIXDR,F,{wind_angle_speed:.2f},V,Wind_A_Raw"
+    xdr_sentence = f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
+    output_queue.put(xdr_sentence)
+    logger.debug(f"Measured Wind Speed NMEA XDR sentence added: {xdr_sentence.strip()}")
 
 trigger_functions = {
     "Boatspeed (Knots)": process_boatspeed_nmea,
@@ -133,7 +144,9 @@ trigger_functions = {
     "Sea Temperature (°C)": process_sea_temperature_nmea,
     "Heading": process_heading_nmea,
     "Speed Over Ground": process_cog_sog_nmea,              #Also relies on COG
-    "LatLon":process_gll_nmea
+    "LatLon":process_gll_nmea,
+    "Measured Wind Angle (Raw)":measured_wind_angle_raw,
+    "Measured Wind Speed (Raw) "measured_wind_angle_speed:
 }
 
 
