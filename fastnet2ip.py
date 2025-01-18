@@ -146,7 +146,7 @@ trigger_functions = {
     "Speed Over Ground": process_cog_sog_nmea,              #Also relies on COG
     "LatLon":process_gll_nmea,
     "Measured Wind Angle (Raw)":measured_wind_angle_raw,
-    "Measured Wind Speed (Raw) "measured_wind_angle_speed:
+    "Measured Wind Speed (Raw)":measured_wind_angle_speed
 }
 
 
