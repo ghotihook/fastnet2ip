@@ -80,7 +80,7 @@ def process_twa_tws_nmea(tws):
 def process_awa_aws_nmea(aws):
     awa = get_live_data("Apparent Wind Angle")
     if awa < 0:
-        awa = twa + 360 #we need to convert +-180 to 0-360
+        awa = awa + 360 #we need to convert +-180 to 0-360
     mwv_sentence = f"IIMWV,{awa:.1f},R,{aws:.1f},N,A"  # "R" for relative wind angle
     mwv_sentence = f"${mwv_sentence}*{calculate_nmea_checksum(mwv_sentence)}\n"
     output_queue.put(mwv_sentence)
