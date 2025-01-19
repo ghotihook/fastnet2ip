@@ -284,40 +284,26 @@ def producer_file(file_path):
 def consumer():
     """
     Processes decoded frames, updates live data, and triggers NMEA sentences if applicable.
-    This version handles multiple frames returned by get_complete_frames.
     """
-    logger.info("Consumer started.")
     while True:
-        try:
-            # Get all available complete frames from the buffer
-            decoded_frames = frame_buffer.get_complete_frames()
-            if not decoded_frames:  # No frames returned
-                continue
+        decoded_frames = frame_buffer.get_complete_frames()
+        for frame in decoded_frames:
+            logger.debug(f"Decoded frame contents: {frame}")
+            values = frame.get("values", {})  # Get all channels in the frame
 
-            # Process each decoded frame
-            for frame in decoded_frames:
-                logger.debug(f"Decoded frame contents: {frame}")
-                values = frame.get("values", {})  # Get all channels in the frame
+            for channel_name, channel_data in values.items():
+                if channel_data is None:  # Skip if the value is None
+                    continue
+                channel_id = channel_data.get("channel_id", "??")
+                interpreted_value = channel_data.get("interpreted", "N/A")
 
-                for channel_name, channel_data in values.items():
-                    if channel_data is None:  # Skip if the value is None
-                        continue
-                    channel_id = channel_data.get("channel_id", "??")
-                    interpreted_value = channel_data.get("interpreted", "N/A")
+                # Update live data
+                update_live_data(channel_name, channel_id, interpreted_value)
 
-                    # Update live data
-                    update_live_data(channel_name, channel_id, interpreted_value)
-
-                    # Trigger the NMEA sentence
-                    trigger_nmea_sentence(channel_name, interpreted_value)
-
-        except queue.Empty:
-            # No frame available within the timeout, continue waiting
-            continue
-        except Exception as e:
-            logger.error(f"Unexpected error in consumer: {e}")
-
-            
+                # Trigger the NMEA sentence
+                logger.debug(f"Checking if NMEA sentence should be triggered for {channel_name}")
+                trigger_nmea_sentence(channel_name, interpreted_value)  # Ensure this is always called
+        time.sleep(0.01)
 
 
 def print_live_data():
