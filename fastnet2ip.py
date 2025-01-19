@@ -29,9 +29,6 @@ output_queue = queue.Queue(maxsize=1024)
 
 
 
-############################################################
-
-
 
 # triggers
 def process_boatspeed_nmea(boatspeed):
@@ -349,6 +346,7 @@ def main():
     parser.add_argument("--serial", type=str, help="Specify serial port (e.g., /dev/ttyUSB0)")
     parser.add_argument("-u", "--udp-port", type=int, default=DEFAULT_UDP_PORT, help="UDP port for broadcasting messages")
     parser.add_argument("--log-level", type=str, default="INFO", help="Set the log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
+    parser.add_argument("--show-data", action="store_true", help="Enable output monitor thread to console once per second")
 
     args = parser.parse_args()
 
@@ -365,19 +363,20 @@ def main():
 
     consumer_thread = threading.Thread(target=consumer, daemon=True)
     live_data_thread = threading.Thread(target=print_live_data, daemon=True)
-    output_monitor_thread = threading.Thread(target=output_monitor, args=(args.udp_port,), daemon=True)
 
     producer_thread.start()
     consumer_thread.start()
     live_data_thread.start()
-    output_monitor_thread.start()
+
+    if args.show_data:
+        output_monitor_thread = threading.Thread(target=output_monitor, args=(args.udp_port,), daemon=True)
+        output_monitor_thread.start()
 
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
         logger.info("Stopping decoder. Goodbye!")
-
 
 if __name__ == "__main__":
     main()
