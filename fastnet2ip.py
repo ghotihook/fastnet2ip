@@ -4,6 +4,7 @@ import time
 import serial
 import queue
 import socket
+import select
 #import logging  # Ensure logging is imported
 
 from datetime import datetime
@@ -228,25 +229,25 @@ def trigger_nmea_sentence(channel_name, interpreted_value):
         except Exception as e:
             logger.error(f"Error executing trigger function for {channel_name}: {e}")
 
-
 def producer_serial(port):
     while True:
         try:
             logger.info(f"Attempting to connect to serial port: {port} at {BAUDRATE} baud.")
-            with serial.Serial(port=port, baudrate=BAUDRATE, bytesize=BYTE_SIZE, stopbits=STOP_BITS, parity=PARITY, timeout=TIMEOUT) as ser:
+            with serial.Serial(port=port, baudrate=BAUDRATE, bytesize=BYTE_SIZE, stopbits=STOP_BITS, parity=PARITY, timeout=0) as ser:
                 logger.info(f"Successfully connected to {port}.")
                 while True:
-                    new_data = ser.read(ser.in_waiting or 256)
-                    if new_data:
-                        frame_buffer.add_to_buffer(new_data)
-                    time.sleep(0.05)
+                    # Use select to wait for data
+                    rlist, _, _ = select.select([ser], [], [], 1)  # Timeout of 1 second
+                    if ser in rlist:
+                        new_data = ser.read(256)  # Read up to 256 bytes
+                        if new_data:
+                            frame_buffer.add_to_buffer(new_data)
         except serial.SerialException as e:
             logger.error(f"Serial connection error: {e}. Retrying in 5 seconds...")
             time.sleep(5)
         except Exception as e:
             logger.error(f"Unexpected error in producer_serial: {e}. Retrying in 5 seconds...")
             time.sleep(5)
-
 
 
 def producer_file(file_path):
