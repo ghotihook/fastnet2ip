@@ -290,7 +290,7 @@ def consumer():
     while True:
         try:
             # Wait for new frames from the queue
-            frame = frame_buffer.get_complete_frame(timeout=1)  # Timeout of 1 second
+            frame = frame_buffer.get_complete_frames(timeout=1)  # Timeout of 1 second
             if frame is None:  # Timeout occurred
                 continue
 
