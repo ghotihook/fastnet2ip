@@ -343,7 +343,7 @@ def print_live_data():
 def main():
     parser = argparse.ArgumentParser(description="FastNet Protocol Decoder")
     parser.add_argument("--file", type=str, help="Specify the path to hex file")
-    parser.add_argument("--serial", type=str, help="Specify serial port (e.g., /dev/ttyUSB0)")
+    parser.add_argument("--serial", type=str, help="Specify serial port (e.g., /dev/ttyUSB0 or on M5Stack Core MP135 /dev/ttySTM3)")
     parser.add_argument("-u", "--udp-port", type=int, default=DEFAULT_UDP_PORT, help="UDP port for broadcasting messages")
     parser.add_argument("--log-level", type=str, default="INFO", help="Set the log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
     parser.add_argument("--show-data", action="store_true", help="Enable output monitor thread to console once per second")
@@ -362,15 +362,18 @@ def main():
         return
 
     consumer_thread = threading.Thread(target=consumer, daemon=True)
-    live_data_thread = threading.Thread(target=print_live_data, daemon=True)
+    output_monitor_thread = threading.Thread(target=output_monitor, args=(args.udp_port,), daemon=True)
+    
 
     producer_thread.start()
     consumer_thread.start()
-    live_data_thread.start()
+    output_monitor_thread.start()
 
     if args.show_data:
-        output_monitor_thread = threading.Thread(target=output_monitor, args=(args.udp_port,), daemon=True)
-        output_monitor_thread.start()
+        live_data_thread = threading.Thread(target=print_live_data, daemon=True)
+        live_data_thread.start()
+        
+        
 
     try:
         while True:
