@@ -26,91 +26,109 @@ OUTPUT_MONITOR_TIMEOUT = 1
 frame_buffer = FrameBuffer()
 live_data = {}
 live_data_lock = threading.Lock()
-output_queue = queue.Queue(maxsize=1024)
 
 
 
 
 # triggers
 def process_boatspeed_nmea(boatspeed):
+    """
+    Generate NMEA sentence for boatspeed.
+    """
     hdg_m = get_live_data("Heading")
-    if hdg_m != None:
+    if hdg_m is not None:
         vhw_sentence = f"IIVHW,,,{hdg_m},M,{boatspeed:.1f},N,,"
     else:
         vhw_sentence = f"IIVHW,,,,,{boatspeed:.1f},N,,"
-    vhw_sentence = f"${vhw_sentence}*{calculate_nmea_checksum(vhw_sentence)}\n"
-    output_queue.put(vhw_sentence)
-    logger.debug(f"Boatspeed NMEA VHW sentence added: {vhw_sentence.strip()}")
+    return f"${vhw_sentence}*{calculate_nmea_checksum(vhw_sentence)}\n"
+
 
 def process_depth_nmea(depth):
+    """
+    Generate NMEA sentence for depth.
+    """
     dbt_sentence = f"IIDBT,,,{depth:.2f},M,,"
-    dbt_sentence = f"${dbt_sentence}*{calculate_nmea_checksum(dbt_sentence)}\n"
-    output_queue.put(dbt_sentence)
-    logger.debug(f"Depth NMEA DBT sentence added: {dbt_sentence.strip()}")
+    return f"${dbt_sentence}*{calculate_nmea_checksum(dbt_sentence)}\n"
+
 
 def process_rudder_angle_nmea(rudder_angle):
+    """
+    Generate NMEA sentence for rudder angle.
+    """
     direction = "A"  # "A" indicates valid data
     rsa_sentence = f"IIRSA,{rudder_angle:.1f},{direction},,{direction}"
-    rsa_sentence = f"${rsa_sentence}*{calculate_nmea_checksum(rsa_sentence)}\n"
-    output_queue.put(rsa_sentence)
-    logger.debug(f"Rudder Angle NMEA RSA sentence added: {rsa_sentence.strip()}")
+    return f"${rsa_sentence}*{calculate_nmea_checksum(rsa_sentence)}\n"
+
 
 def process_battery_volts_nmea(battery_volts):
+    """
+    Generate NMEA sentence for battery voltage.
+    """
     xdr_sentence = f"IIXDR,U,{battery_volts:.2f},V,BATTV"
-    xdr_sentence = f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
-    output_queue.put(xdr_sentence)
-    logger.debug(f"Battery Volts NMEA XDR sentence added: {xdr_sentence.strip()}")
+    return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
 
 
 def process_twd_nmea(twd):
+    """
+    Generate NMEA sentence for true wind direction.
+    """
     mwd_sentence = f"WIMWD,,,{twd:.1f},M,,N"
-    mwd_sentence = f"${mwd_sentence}*{calculate_nmea_checksum(mwd_sentence)}\n"
-    output_queue.put(mwd_sentence)
-    logger.debug(f"Magnetic True Wind Direction NMEA MWD sentence added: {mwd_sentence.strip()}")
+    return f"${mwd_sentence}*{calculate_nmea_checksum(mwd_sentence)}\n"
+
 
 def process_twa_tws_nmea(tws):
+    """
+    Generate NMEA sentence for true wind speed and angle.
+    """
     twa = get_live_data("True Wind Angle")
-    if twa < 0:
-        twa = twa + 360 #we need to convert +-180 to 0-360
+    if twa is not None and twa < 0:
+        twa += 360  # Convert -180 to 180 range to 0 to 360
     mwv_sentence = f"IIMWV,{twa:.1f},T,{tws:.1f},N,A"
-    mwv_sentence = f"${mwv_sentence}*{calculate_nmea_checksum(mwv_sentence)}\n"
-    output_queue.put(mwv_sentence)
-    logger.debug(f"True Wind NMEA MWV sentence added: {mwv_sentence.strip()}")
-    
+    return f"${mwv_sentence}*{calculate_nmea_checksum(mwv_sentence)}\n"
+
 
 def process_awa_aws_nmea(aws):
+    """
+    Generate NMEA sentence for apparent wind speed and angle.
+    """
     awa = get_live_data("Apparent Wind Angle")
-    if awa < 0:
-        awa = awa + 360 #we need to convert +-180 to 0-360
+    if awa is not None and awa < 0:
+        awa += 360  # Convert -180 to 180 range to 0 to 360
     mwv_sentence = f"IIMWV,{awa:.1f},R,{aws:.1f},N,A"  # "R" for relative wind angle
-    mwv_sentence = f"${mwv_sentence}*{calculate_nmea_checksum(mwv_sentence)}\n"
-    output_queue.put(mwv_sentence)
-    logger.debug(f"Apparent Wind NMEA MWV sentence added: {mwv_sentence.strip()}")
+    return f"${mwv_sentence}*{calculate_nmea_checksum(mwv_sentence)}\n"
+
 
 def process_sea_temperature_nmea(sea_temp):
+    """
+    Generate NMEA sentence for sea temperature.
+    """
     mtw_sentence = f"IIMTW,{sea_temp:.1f},C"
-    mtw_sentence = f"${mtw_sentence}*{calculate_nmea_checksum(mtw_sentence)}\n"
-    output_queue.put(mtw_sentence)
-    logger.debug(f"Sea Temperature NMEA MTW sentence added: {mtw_sentence.strip()}")
+    return f"${mtw_sentence}*{calculate_nmea_checksum(mtw_sentence)}\n"
+
 
 def process_heading_nmea(heading):
+    """
+    Generate NMEA sentence for heading.
+    """
     hdg_sentence = f"IIHDG,{heading:.1f},,,,"
-    hdg_sentence = f"${hdg_sentence}*{calculate_nmea_checksum(hdg_sentence)}\n"
-    output_queue.put(hdg_sentence)
-    logger.debug(f"Heading NMEA HDG sentence added: {hdg_sentence.strip()}")
+    return f"${hdg_sentence}*{calculate_nmea_checksum(hdg_sentence)}\n"
+
 
 def process_cog_sog_nmea(sog):
+    """
+    Generate NMEA sentence for course over ground and speed over ground.
+    """
     cog = get_live_data("Course Over Ground (Mag)")
-    # Construct the VTG NMEA sentence
     vtg_sentence = f"IIVTG,,,{cog:.1f},M,{sog:.1f},N,,K"
-    vtg_sentence = f"${vtg_sentence}*{calculate_nmea_checksum(vtg_sentence)}\n"
-    output_queue.put(vtg_sentence)
-    logger.debug(f"VTG NMEA sentence added: {vtg_sentence.strip()}")
+    return f"${vtg_sentence}*{calculate_nmea_checksum(vtg_sentence)}\n"
 
 
 def process_gll_nmea(latlon_str):
+    """
+    Generate NMEA sentence for latitude and longitude.
+    """
     lat_split_idx = max(latlon_str.find('N'), latlon_str.find('S'))
-    lon_split_idx = max(latlon_str.find('E'), latlon_str.find('W'))  # Fixed typo here
+    lon_split_idx = max(latlon_str.find('E'), latlon_str.find('W'))
     if lat_split_idx == -1 or lon_split_idx == -1:
         raise ValueError("Invalid lat/lon format")
     lat_part = latlon_str[:lat_split_idx]
@@ -119,21 +137,23 @@ def process_gll_nmea(latlon_str):
     lon_dir = latlon_str[lon_split_idx]
     current_time = datetime.utcnow().strftime("%H%M%S")
     gll_sentence = f"GPGLL,{lat_part},{lat_dir},{lon_part},{lon_dir},{current_time},A"
-    gll_sentence = f"${gll_sentence}*{calculate_nmea_checksum(gll_sentence)}\n"
-    output_queue.put(gll_sentence)
-    logger.debug(f"GLL NMEA sentence added: {gll_sentence.strip()}")
+    return f"${gll_sentence}*{calculate_nmea_checksum(gll_sentence)}\n"
+
 
 def measured_wind_angle_raw(wind_angle_raw):
+    """
+    Generate NMEA sentence for measured wind angle (raw).
+    """
     xdr_sentence = f"IIXDR,A,{wind_angle_raw:.2f},V,Wind_A_Raw"
-    xdr_sentence = f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
-    output_queue.put(xdr_sentence)
-    logger.debug(f"Measured Wind Angle NMEA XDR sentence added: {xdr_sentence.strip()}")
+    return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
+
 
 def measured_wind_angle_speed(wind_angle_speed):
+    """
+    Generate NMEA sentence for measured wind speed (raw).
+    """
     xdr_sentence = f"IIXDR,N,{wind_angle_speed:.2f},V,Wind_S_Raw"
-    xdr_sentence = f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
-    output_queue.put(xdr_sentence)
-    logger.debug(f"Measured Wind Speed NMEA XDR sentence added: {xdr_sentence.strip()}")
+    return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
 
 trigger_functions = {
     "Boatspeed (Knots)": process_boatspeed_nmea,
@@ -172,36 +192,6 @@ def get_live_data(name):
             return data.get("interpreted_value")
         return None
 
-        
-def output_monitor(udp_port):
-    """Monitors the output_queue and broadcasts messages via UDP."""
-    logger.info("Output Monitor started.")
-    try:
-        # Create and configure UDP broadcast socket
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            sock.bind(("", udp_port))
-            logger.info(f"Broadcasting on {BROADCAST_ADDRESS}:{udp_port}")
-            while True:
-                try:
-                    message = output_queue.get(timeout=OUTPUT_MONITOR_TIMEOUT)
-                    if not message.strip():
-                        logger.warning("Empty message detected; skipping broadcast.")
-                        continue
-                    sock.sendto(message.encode(), (BROADCAST_ADDRESS, udp_port))
-                    logger.debug(f"Broadcasted message: {message.strip()}")
-                except queue.Empty:
-                    continue
-                except socket.error as e:
-                    logger.error(f"Socket error during broadcast: {e}")
-                except Exception as e:
-                    logger.error(f"Unexpected error during message broadcast: {e}")
-    except Exception as e:
-        logger.error(f"Error initializing UDP socket: {e}")
-    finally:
-        logger.info("Output Monitor stopped.")
-
 
 
 def update_live_data(channel_name, channel_id, interpreted_value):
@@ -217,170 +207,222 @@ def update_live_data(channel_name, channel_id, interpreted_value):
         }
     #logger.debug(f"Live Data Updated: {channel_name} (ID: {channel_id}) = {interpreted_value} at {timestamp}")
 
+
 def trigger_nmea_sentence(channel_name, interpreted_value):
     """
-    Executes the corresponding trigger function for the given channel name.
+    Executes the corresponding trigger function for the given channel name
+    and returns the generated NMEA sentence.
+
+    Args:
+        channel_name (str): The name of the channel (e.g., "Boatspeed (Knots)").
+        interpreted_value (any): The interpreted value to process.
+
+    Returns:
+        str or None: The NMEA sentence, or None if no sentence is generated.
     """
     trigger_function = trigger_functions.get(channel_name)
-    if trigger_function:
-        try:
-            logger.debug(f"Triggering function for {channel_name} with value: {interpreted_value}")
-            trigger_function(interpreted_value)
-        except Exception as e:
-            logger.error(f"Error executing trigger function for {channel_name}: {e}")
+    if not trigger_function:
+        logger.warning(f"No trigger function defined for channel: {channel_name}. Skipping.")
+        return None
 
-def producer_serial(port):
-    while True:
-        try:
-            logger.info(f"Attempting to connect to serial port: {port} at {BAUDRATE} baud.")
-            with serial.Serial(port=port, baudrate=BAUDRATE, bytesize=BYTE_SIZE, stopbits=STOP_BITS, parity=PARITY, timeout=0) as ser:
-                logger.info(f"Successfully connected to {port}.")
-                while True:
-                    # Use select to wait for data
-                    rlist, _, _ = select.select([ser], [], [], 1)  # Timeout of 1 second
-                    if ser in rlist:
-                        new_data = ser.read(256)  # Read up to 256 bytes
-                        if new_data:
-                            frame_buffer.add_to_buffer(new_data)
-        except serial.SerialException as e:
-            logger.error(f"Serial connection error: {e}. Retrying in 5 seconds...")
-            time.sleep(5)
-        except Exception as e:
-            logger.error(f"Unexpected error in producer_serial: {e}. Retrying in 5 seconds...")
-            time.sleep(5)
-
-
-def producer_file(file_path):
     try:
-        with open(file_path, "r") as file:
-            hex_data = file.read().strip().replace(" ", "")
-            if not hex_data:
-                logger.warning("The file is empty.")
-                return
-
-            binary_data = bytes.fromhex(hex_data)
-            logger.info(f"Loaded {len(binary_data)} bytes of binary data from file.")
-
-            # Emulation parameters for 22500 baud
-            chunk_size = 256  # Send 256 bytes at a time
-            delay_per_chunk = 0.11  # 110 ms delay per chunk (~2250 bytes/sec)
-
-            for i in range(0, len(binary_data), chunk_size):
-                chunk = binary_data[i:i + chunk_size]
-                frame_buffer.add_to_buffer(chunk)
-                logger.debug(f"Sent {len(chunk)} bytes of data from file (chunk {i // chunk_size + 1}).")
-                time.sleep(delay_per_chunk)
-
-            logger.info("Finished sending all data from file.")
-    except FileNotFoundError:
-        logger.error(f"File not found: {file_path}")
-    except ValueError:
-        logger.error("Failed to convert hex data to binary. Ensure the file contains valid hexadecimal data.")
+        logger.debug(f"Triggering function for {channel_name} with value: {interpreted_value}")
+        message = trigger_function(interpreted_value)
+        if not message:
+            logger.warning(f"Trigger function for {channel_name} returned no message. Value: {interpreted_value}")
+        return message
     except Exception as e:
-        logger.error(f"Unexpected error in producer_file: {e}")
+        logger.error(f"Error executing trigger function for {channel_name} with value {interpreted_value}: {e}")
+        return None
 
 
-
-def consumer():
-    """
-    Processes decoded frames, updates live data, and triggers NMEA sentences if applicable.
-    """
-    while True:
-        decoded_frames = frame_buffer.get_complete_frames()
-        for frame in decoded_frames:
-            logger.debug(f"Decoded frame contents: {frame}")
-            values = frame.get("values", {})  # Get all channels in the frame
-
-            for channel_name, channel_data in values.items():
-                if channel_data is None:  # Skip if the value is None
-                    continue
-                channel_id = channel_data.get("channel_id", "??")
-                interpreted_value = channel_data.get("interpreted", "N/A")
-
-                # Update live data
-                update_live_data(channel_name, channel_id, interpreted_value)
-
-                # Trigger the NMEA sentence
-                logger.debug(f"Checking if NMEA sentence should be triggered for {channel_name}")
-                trigger_nmea_sentence(channel_name, interpreted_value)  # Ensure this is always called
-        time.sleep(0.01)
 
 
 def print_live_data():
+
+    # Clear console for clean output
+    print("\033c", end="")
+
+    # Print table header
+    header = f"{'Channel Name':<30} {'Channel ID':<12} {'Value':<25} {'Timestamp':<30}"
+    print(header)
+    print("-" * len(header))
+
+    # Sort live_data by channel name and print each row
+    for channel_name, data in sorted(live_data.items()):
+        channel_id = str(data.get("channel_id", "??"))
+        value = str(data.get("interpreted_value", "N/A"))
+        timestamp = str(data.get("timestamp", "N/A"))
+
+        channel_name = str(channel_name) if channel_name else "Unknown"
+
+        row = f"{channel_name:<30} {channel_id:<12} {value:<25} {timestamp:<30}"
+        print(row)
+
+    print("Buffer Size:", frame_buffer.get_buffer_size())  # Output: Buffer Size: X
+    print("\n")  # Add a blank line for readability
+
+
+def read_input_source(input_source, is_file):
+    if is_file:
+        try:
+            time.sleep(.1)
+            return next(input_source)
+        except StopIteration:
+            logger.info("Finished reading from file.")
+            return None
+    else:
+        rlist, _, _ = select.select([input_source], [], [], 1)
+        if input_source in rlist:
+            return input_source.read(256)
+    return None
+
+
+def process_frame_queue(frame_queue, udp_socket, udp_port):
+    while not frame_queue.empty():
+        try:
+            frame = frame_queue.get_nowait()
+            if not frame:
+                logger.warning("Received None frame from queue. Skipping.")
+                continue
+
+            logger.debug(f"Processing decoded frame: {frame}")
+            values = frame.get("values", {})
+            for channel_name, channel_data in values.items():
+                if channel_data:
+                    channel_id = channel_data.get("channel_id", "??")
+                    interpreted_value = channel_data.get("interpreted", "N/A")
+
+                    # Update live data
+                    update_live_data(channel_name, channel_id, interpreted_value)
+
+                    # Generate and broadcast NMEA sentence
+                    message = trigger_nmea_sentence(channel_name, interpreted_value)
+                    if message:
+                        try:
+                            udp_socket.sendto(message.encode(), (BROADCAST_ADDRESS, udp_port))
+                            logger.debug(f"Broadcasted message: {message.strip()}")
+                        except socket.error as e:
+                            logger.error(f"Failed to send message: {e}")
+        except queue.Empty:
+            break
+        except Exception as e:
+            logger.error(f"Unexpected error while processing frame: {e}")
+
+
+
+def setup_udp_socket():
+    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    return udp_socket
+
+
+def initialize_input_source(args):
     """
-    Periodically prints the live_data dictionary in a readable, formatted table, sorted by channel name.
+    Initialize the input source based on the arguments.
+
+    Args:
+        args (argparse.Namespace): Parsed command-line arguments.
+
+    Returns:
+        tuple: (input_source, is_file)
+            - input_source: The input source (serial.Serial or file iterator).
+            - is_file: True if the input source is a file, False otherwise.
     """
-    while True:
-        with live_data_lock:  # Acquire lock to ensure thread-safe reading
-            if not live_data:
-                print("\033c", end="")  # Clear console
-                print("No live data available.\n")
-            else:
-                # Clear console for clean output
-                print("\033c", end="")
+    if args.serial:
+        try:
+            logger.info(f"Reading data from serial port: {args.serial}")
+            input_source = serial.Serial(
+                port=args.serial,
+                baudrate=BAUDRATE,
+                bytesize=BYTE_SIZE,
+                stopbits=STOP_BITS,
+                parity=PARITY,
+                timeout=0
+            )
+            return input_source, False
+        except serial.SerialException as e:
+            logger.error(f"Failed to open serial port {args.serial}: {e}")
+            logger.error("Please check the port name, permissions, or if the port is already in use.")
+            return None, False
+        except PermissionError:
+            logger.error(f"Permission denied: Unable to access serial port {args.serial}.")
+            logger.error("Try running with elevated privileges or check user permissions for the device.")
+            return None, False
+    elif args.file:
+        try:
+            logger.info(f"Reading data from file: {args.file}")
+            with open(args.file, "r") as file:
+                hex_data = file.read().strip().replace(" ", "")
+                if not hex_data:
+                    logger.error("The specified file is empty.")
+                    return None, True
+                binary_data = bytes.fromhex(hex_data)
+                input_source = iter([binary_data[i:i+256] for i in range(0, len(binary_data), 256)])
+                return input_source, True
+        except FileNotFoundError:
+            logger.error(f"File not found: {args.file}")
+            return None, True
+        except ValueError:
+            logger.error("Invalid file format: Ensure the file contains valid hexadecimal data.")
+            return None, True
+    else:
+        logger.error("No valid input source specified. Use --serial or --file.")
+        return None, False
 
-                # Print table header
-                header = f"{'Channel Name':<30} {'Channel ID':<12} {'Value':<25} {'Timestamp':<30}"
-                print(header)
-                print("-" * len(header))
 
-                # Sort live_data by channel name and print each row
-                for channel_name, data in sorted(live_data.items()):
-                    channel_id = str(data.get("channel_id", "??"))
-                    value = str(data.get("interpreted_value", "N/A"))
-                    timestamp = str(data.get("timestamp", "N/A"))
 
-                    channel_name = str(channel_name) if channel_name else "Unknown"
-
-                    row = f"{channel_name:<30} {channel_id:<12} {value:<25} {timestamp:<30}"
-                    print(row)
-
-                print("Buffer Size:", frame_buffer.get_buffer_size())  # Output: Buffer Size: X
-                print("\n")  # Add a blank line for readability
-
-        time.sleep(1)  # Print live data every second
 
 
 def main():
+    """
+    Single-threaded main loop for processing FastNet frames and broadcasting NMEA sentences.
+    Supports input from a serial port or a hex file.
+    """
     parser = argparse.ArgumentParser(description="FastNet Protocol Decoder")
-    parser.add_argument("--file", type=str, help="Specify the path to hex file")
-    parser.add_argument("--serial", type=str, help="Specify serial port (e.g., /dev/ttyUSB0 or on M5Stack Core MP135 /dev/ttySTM3)")
-    parser.add_argument("-u", "--udp-port", type=int, default=DEFAULT_UDP_PORT, help="UDP port for broadcasting messages")
+    parser.add_argument("--serial", type=str, help="Specify serial port (e.g., /dev/ttyUSB0)")
+    parser.add_argument("--file", type=str, help="Specify the path to a hex file")
+    parser.add_argument("--udp-port", type=int, default=DEFAULT_UDP_PORT, help="UDP port for broadcasting messages")
     parser.add_argument("--log-level", type=str, default="INFO", help="Set the log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
-    parser.add_argument("--show-data", action="store_true", help="Enable output monitor thread to console once per second")
-
+    parser.add_argument("--live-data", action="store_true", help="Enable live data display once per second")
     args = parser.parse_args()
 
     set_log_level(args.log_level)
 
-    if args.serial:
-        producer_thread = threading.Thread(target=producer_serial, args=(args.serial,), daemon=True)
-    elif args.file:
-        producer_thread = threading.Thread(target=producer_file, args=(args.file,), daemon=True)
-    else:
-        logger.error("Please specify either --serial or --file.")
-        parser.print_help()
+    input_source, is_file = initialize_input_source(args)
+    if not input_source:
         return
 
-    consumer_thread = threading.Thread(target=consumer, daemon=True)
-    output_monitor_thread = threading.Thread(target=output_monitor, args=(args.udp_port,), daemon=True)
-    
+    udp_socket = setup_udp_socket()
+    frame_buffer = FrameBuffer()
 
-    producer_thread.start()
-    consumer_thread.start()
-    output_monitor_thread.start()
-
-    if args.show_data:
-        live_data_thread = threading.Thread(target=print_live_data, daemon=True)
-        live_data_thread.start()
-        
-        
+    last_live_data_print = time.time()  # Track the last time live data was printed
 
     try:
         while True:
-            time.sleep(1)
+            # Read data from the input source
+            new_data = read_input_source(input_source, is_file)
+            if new_data:
+                frame_buffer.add_to_buffer(new_data)
+                frame_buffer.get_complete_frames()
+
+                process_frame_queue(frame_buffer.frame_queue, udp_socket, args.udp_port)
+
+            # Check if live data should be printed
+            if args.live_data and time.time() - last_live_data_print >= 1:
+                print_live_data()
+                last_live_data_print = time.time()
+
+            if is_file and new_data is None:
+                break  # End of file reached
     except KeyboardInterrupt:
-        logger.info("Stopping decoder. Goodbye!")
+        logger.info("Shutting down. Goodbye!")
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+    finally:
+        if isinstance(input_source, serial.Serial) and input_source.is_open:
+            input_source.close()
+        udp_socket.close()
 
 if __name__ == "__main__":
     main()
