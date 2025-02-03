@@ -155,6 +155,23 @@ def measured_wind_angle_speed(wind_angle_speed):
     xdr_sentence = f"IIXDR,N,{wind_angle_speed:.2f},V,Wind_S_Raw"
     return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
 
+
+def tide_drift(tide_drift_spd):
+    """
+    Generate NMEA sentence for measured wind speed (raw).
+    """
+    xdr_sentence = f"IIXDR,N,{tide_drift_spd:.2f},V,DRIFT"
+    return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
+
+def tide_set(tide_set_angle):
+    """
+    Generate NMEA sentence for measured wind angle (raw).
+    """
+    xdr_sentence = f"IIXDR,A,{tide_set_angle:.2f},V,SET"
+    return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
+
+
+
 trigger_functions = {
     "Boatspeed (Knots)": process_boatspeed_nmea,
     "Depth (Meters)": process_depth_nmea,
@@ -168,7 +185,9 @@ trigger_functions = {
     "Speed Over Ground": process_cog_sog_nmea,              #Also relies on COG
     "LatLon":process_gll_nmea,
     "Measured Wind Angle (Raw)":measured_wind_angle_raw,
-    "Measured Wind Speed (Raw)":measured_wind_angle_speed
+    "Measured Wind Speed (Raw)":measured_wind_angle_speed,
+    "Tidal Drift":tide_drift,
+    "Tidal Set":tide_set
 }
 
 
