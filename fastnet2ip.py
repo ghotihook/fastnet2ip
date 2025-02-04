@@ -76,7 +76,7 @@ def process_twd_nmea(twd):
     return f"${mwd_sentence}*{calculate_nmea_checksum(mwd_sentence)}\n"
 
 
-def process_twa_tws_nmea(tws):
+def process_tws_nmea(tws):
     """
     Generate NMEA sentence for true wind speed and angle.
     """
@@ -86,12 +86,31 @@ def process_twa_tws_nmea(tws):
     mwv_sentence = f"IIMWV,{twa:.1f},T,{tws:.1f},N,A"
     return f"${mwv_sentence}*{calculate_nmea_checksum(mwv_sentence)}\n"
 
+def process_twa_nmea(twa):
+    """
+    Generate NMEA sentence for true wind speed and angle.
+    """
+    tws = get_live_data("True Wind Speed (Knots)")
+    if twa is not None and twa < 0:
+        twa += 360  # Convert -180 to 180 range to 0 to 360
+    mwv_sentence = f"IIMWV,{twa:.1f},T,{tws:.1f},N,A"
+    return f"${mwv_sentence}*{calculate_nmea_checksum(mwv_sentence)}\n"
 
-def process_awa_aws_nmea(aws):
+def process_aws_nmea(aws):
     """
     Generate NMEA sentence for apparent wind speed and angle.
     """
     awa = get_live_data("Apparent Wind Angle")
+    if awa is not None and awa < 0:
+        awa += 360  # Convert -180 to 180 range to 0 to 360
+    mwv_sentence = f"IIMWV,{awa:.1f},R,{aws:.1f},N,A"  # "R" for relative wind angle
+    return f"${mwv_sentence}*{calculate_nmea_checksum(mwv_sentence)}\n"
+
+def process_awa_nmea(awa):
+    """
+    Generate NMEA sentence for apparent wind speed and angle.
+    """
+    aws = get_live_data("Apparent Wind Speed (Knots)")
     if awa is not None and awa < 0:
         awa += 360  # Convert -180 to 180 range to 0 to 360
     mwv_sentence = f"IIMWV,{awa:.1f},R,{aws:.1f},N,A"  # "R" for relative wind angle
@@ -178,8 +197,13 @@ trigger_functions = {
     "Rudder Angle": process_rudder_angle_nmea,
     "Battery Volts": process_battery_volts_nmea,
     "True Wind Direction": process_twd_nmea,
-    "True Wind Speed (Knots)": process_twa_tws_nmea,        #Also relies on TWA
-    "Apparent Wind Speed (Knots)": process_awa_aws_nmea,    #Also relies on AWA
+    
+    "True Wind Speed (Knots)": process_tws_nmea,        #Also relies on TWA
+    "True Wind Angle": process_twa_nmea,        #Also relies on TWA
+
+    "Apparent Wind Speed (Knots)": process_aws_nmea,    #Also relies on AWA
+    "Apparent Wind Angle": process_awa_nmea,
+    
     "Sea Temperature (°C)": process_sea_temperature_nmea,
     "Heading": process_heading_nmea,
     "Speed Over Ground": process_cog_sog_nmea,              #Also relies on COG
