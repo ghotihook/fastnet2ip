@@ -71,10 +71,14 @@ If being run at startup, the fastnet2ip_wd.sh can be used as a robust way to kee
 
 ## Approach
 This is the approximate approach
-- Three concurrent threads
-	- Producer (collect data stream either from test file or serila port)
-	- Consumer (use pyfastnet library to decode the stream, submit to internal status and trigger output NMEA message)
-	- Output (stream NMEA messaged via UDP)
+- collect data from serial port or file buffer
+- Add it to the queue for processing
+- Retrive valid message from the queue (remaining partial data is left)
+- Iterate through messages
+	- Updating live_view
+	- Trigger NMEA message sending
+- Wait until more data is available on the input buffer
+
 
 ## Bench Testing
 Record and playback of live data. I use this to capture live data from the boat so I can play it back offline for testing
