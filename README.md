@@ -54,6 +54,12 @@ I have found the USB dongle works out of the box.
 - HDG (Heading)
 - VTG (COG and SOG)
 - GLL (Lat/Lon)
+- Multiple XDR sentences including
+	- Tide Drift
+	- Tide Set
+	- Measured Wind Angle (Raw)
+	- Measured Wind Speed (Raw)
+	- Battery Voltage
 
 **Console output**
 
