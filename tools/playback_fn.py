@@ -8,7 +8,7 @@ import time
 SERIAL_PORT = "/dev/ttyAMA0"        # Replace with your serial port (e.g., COM3 on Windows)
 BAUDRATE = 28800                    # Fastnet baudrate
 TIMEOUT = 0.1                       # Serial timeout in seconds
-INPUT_FILE = "fastnet_record.txt"   # Input file name containing hex data
+INPUT_FILE = "../example1_fastnet_data.txt"   # Input file name containing hex data
 CHUNK_SIZE = 16  # Set the max bytes per write
 
 
