@@ -5,10 +5,12 @@ import sys
 import time
 
 # Configuration Constants
-SERIAL_PORT = "/dev/ttyS0"        # Replace with your serial port (e.g., COM3 on Windows)
+SERIAL_PORT = "/dev/ttyAMA0"        # Replace with your serial port (e.g., COM3 on Windows)
 BAUDRATE = 28800                    # Fastnet baudrate
 TIMEOUT = 0.1                       # Serial timeout in seconds
 INPUT_FILE = "fastnet_record.txt"   # Input file name containing hex data
+CHUNK_SIZE = 16  # Set the max bytes per write
+
 
 # Reset Serial Port
 def reset_serial_port_with_stty(port):
@@ -41,21 +43,21 @@ def playback_file_to_serial(port=SERIAL_PORT, baudrate=BAUDRATE, timeout=TIMEOUT
 
             for line in f:
                 try:
-                    # Convert hex string back to bytes
                     line = line.strip()  # Remove newline and whitespace
                     if line:
-                        data = bytes.fromhex(line)
-                        
-                        # Write data to serial port
-                        ser.write(data)
+                        data = bytes.fromhex(line)  # Convert hex string to bytes
 
-                        # Update and display the total bytes sent
-                        bytes_sent = len(data)
-                        total_bytes += bytes_sent
-                        print(f"\r[DEBUG] Total bytes sent: {total_bytes}", end='', flush=True)
+                        # Send data in chunks
+                        for i in range(0, len(data), CHUNK_SIZE):
+                            chunk = data[i:i + CHUNK_SIZE]  # Extract chunk
+                            ser.write(chunk)  # Write chunk to serial port
 
-                        # Add a short delay between writes to simulate real-time transmission
-                        time.sleep(0.01)  # Adjust as needed
+                            # Update and display the total bytes sent
+                            total_bytes += len(chunk)
+                            print(f"\r[DEBUG] Total bytes sent: {total_bytes}", end='', flush=True)
+
+                            # Add a short delay to simulate real-time transmission
+                            time.sleep(0.2)  # Adjust as needed
 
                 except ValueError as e:
                     print(f"\n[ERROR] Invalid hex data in file: {e}")
@@ -63,7 +65,6 @@ def playback_file_to_serial(port=SERIAL_PORT, baudrate=BAUDRATE, timeout=TIMEOUT
                 except serial.SerialException as e:
                     print(f"\n[ERROR] Serial exception: {e}")
                     break
-
     except FileNotFoundError as e:
         print(f"[ERROR] Input file not found: {e}")
         sys.exit(1)
