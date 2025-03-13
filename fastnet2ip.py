@@ -208,8 +208,8 @@ trigger_functions = {
     "Heading": process_heading_nmea,
     "Speed Over Ground": process_cog_sog_nmea,              #Also relies on COG
     "LatLon":process_gll_nmea,
-    "Measured Wind Angle (Raw)":measured_wind_angle_raw,
-    "Measured Wind Speed (Raw)":measured_wind_angle_speed,
+    "Apparent Wind Angle (Raw)":measured_wind_angle_raw,
+    "Apparent Wind Speed (Raw)":measured_wind_angle_speed,
     "Tidal Drift":tide_drift,
     "Tidal Set":tide_set
 }

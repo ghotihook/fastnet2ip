@@ -36,11 +36,11 @@ I have found the USB dongle works out of the box.
 
 **Virtual mode - txt file input**
 
-```~/python_environment/bin/python3 fastnet2ip.py --file raw_fastnet_data.txt -u 2002 --log-level ERROR```
+```~/python_environment/bin/python3 fastnet2ip.py --file example2_fastnet_data.txt --udp-port 2002 --log-level ERROR --live-data```
 
 **Real mode - serial port input**
 
-```~/python_environment/bin/python3 fastnet2ip.py --serial /dev/ttyUSB0 -u 2002 --log-level ERROR```
+```~/python_environment/bin/python3 fastnet2ip.py --serial /dev/ttyUSB0 --udp-port 2002  --log-level ERROR```
 
 **Support NMEA messages**
 - VHW (Boatspeed)
