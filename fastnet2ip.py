@@ -166,7 +166,7 @@ def measured_wind_angle_raw(wind_angle_raw):
     """
     Generate NMEA sentence for measured wind angle (raw).
     """
-    xdr_sentence = f"IIXDR,A,{wind_angle_raw:.2f},V,Wind_A_Raw"
+    xdr_sentence = f"IIXDR,A,{wind_angle_raw:.2f},V,WIND_A_RAW"
     return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
 
 
@@ -174,7 +174,7 @@ def measured_wind_angle_speed(wind_angle_speed):
     """
     Generate NMEA sentence for measured wind speed (raw).
     """
-    xdr_sentence = f"IIXDR,N,{wind_angle_speed:.2f},V,Wind_S_Raw"
+    xdr_sentence = f"IIXDR,N,{wind_angle_speed:.2f},V,WIND_S_RAW"
     return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
 
 
@@ -196,7 +196,7 @@ def raw_bsp(raw_bsp):
     """
     Generate NMEA sentence for measured wind angle (raw).
     """
-    xdr_sentence = f"IIXDR,A,{tide_set_angle:.2f},V,RAW_BSP"
+    xdr_sentence = f"IIXDR,A,{raw_bsp:.2f},V,BSP_RAW"
     return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
 
 
