@@ -196,7 +196,7 @@ def raw_bsp(raw_bsp):
     """
     Generate NMEA sentence for measured wind angle (raw).
     """
-    xdr_sentence = f"IIXDR,A,{raw_bsp:.2f},V,BSP_RAW"
+    xdr_sentence = f"IIXDR,A,{raw_bsp:.2f},V,RAW_BSP"
     return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
 
 
