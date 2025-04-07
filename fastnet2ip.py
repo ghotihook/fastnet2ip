@@ -43,6 +43,9 @@ def process_boatspeed_nmea(boatspeed):
     return f"${vhw_sentence}*{calculate_nmea_checksum(vhw_sentence)}\n"
 
 
+
+
+
 def process_depth_nmea(depth):
     """
     Generate NMEA sentence for depth.
@@ -189,6 +192,12 @@ def tide_set(tide_set_angle):
     xdr_sentence = f"IIXDR,A,{tide_set_angle:.2f},V,SET"
     return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
 
+def raw_bsp(raw_bsp):
+    """
+    Generate NMEA sentence for measured wind angle (raw).
+    """
+    xdr_sentence = f"IIXDR,A,{tide_set_angle:.2f},V,RAW_BSP"
+    return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
 
 
 trigger_functions = {
@@ -211,7 +220,8 @@ trigger_functions = {
     "Apparent Wind Angle (Raw)":measured_wind_angle_raw,
     "Apparent Wind Speed (Raw)":measured_wind_angle_speed,
     "Tidal Drift":tide_drift,
-    "Tidal Set":tide_set
+    "Tidal Set":tide_set,
+    "Boatspeed (Raw)":raw_bsp
 }
 
 
