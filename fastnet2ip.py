@@ -143,9 +143,22 @@ def process_cog_sog_nmea(sog):
     Generate NMEA sentence for course over ground and speed over ground.
     """
     cog = get_live_data("Course Over Ground (Mag)")
-    vtg_sentence = f"IIVTG,,,{cog:.1f},M,{sog:.1f},N,,K"
-    return f"${vtg_sentence}*{calculate_nmea_checksum(vtg_sentence)}\n"
+    
+    cog_value = ''
+    if cog is not None:
+        try:
+            cog_float = float(cog)
+            if not isnan(cog_float):
+                cog_value = f"{cog_float:.1f}"
+            else:
+                logger.debug("COG value is NaN, using empty field in VTG sentence.")
+        except (ValueError, TypeError):
+            logger.debug(f"COG value is not a valid float ({cog!r}), using empty field in VTG sentence.")
+    else:
+        logger.debug("COG value is None, using empty field in VTG sentence.")
 
+    vtg_sentence = f"IIVTG,,,{cog_value},M,{sog:.1f},N,,K"
+    return f"${vtg_sentence}*{calculate_nmea_checksum(vtg_sentence)}\n"
 
 def process_gll_nmea(latlon_str):
     """
