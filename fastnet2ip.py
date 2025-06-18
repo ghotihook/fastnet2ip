@@ -205,7 +205,7 @@ def process_roll(roll):
     """
     Generate NMEA sentence roll/heel
     """
-    xdr_sentence = f"IIXDR,D,{roll:.2f},V,PTCH"
+    xdr_sentence = f"IIXDR,A,{roll:.2f},D,ROLL"
     return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
 
 
@@ -213,8 +213,9 @@ def process_pitch(pitch):
     """
     Generate NMEA sentence for pitch
     """
-    xdr_sentence = f"IIXDR,D,{pitch:.2f},V,ROLL"
+    xdr_sentence = f"IIXDR,A,{pitch:.2f},D,PITCH"
     return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
+
 
 trigger_functions = {
     "Boatspeed (Knots)": process_boatspeed_nmea,
@@ -304,7 +305,7 @@ def trigger_nmea_sentence(channel_name, interpreted_value):
             logger.warning(f"Trigger function for {channel_name} returned no message. Value: {interpreted_value}")
         return message
     except Exception as e:
-        logger.error(f"Error executing trigger function for {channel_name} with value {interpreted_value}: {e}")
+        logger.info(f"Error executing trigger function for {channel_name} with value {interpreted_value}: {e}")
         return None
 
 
