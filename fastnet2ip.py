@@ -239,9 +239,8 @@ trigger_functions = {
     "Tidal Drift":tide_drift,
     "Tidal Set":tide_set,
     "Boatspeed (Raw)":raw_bsp,
-
     "Heel Angle":process_roll,
-    "Fore/Aft Trim ":process_pitch
+    "Fore/Aft Trim":process_pitch
 }
 
 
