@@ -201,6 +201,20 @@ def raw_bsp(raw_bsp):
     xdr_sentence = f"IIXDR,A,{raw_bsp:.2f},V,RAW_BSP"
     return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
 
+def process_roll(roll):
+    """
+    Generate NMEA sentence roll/heel
+    """
+    xdr_sentence = f"IIXDR,D,{roll:.2f},V,PTCH"
+    return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
+
+
+def process_pitch(pitch):
+    """
+    Generate NMEA sentence for pitch
+    """
+    xdr_sentence = f"IIXDR,D,{pitch:.2f},V,ROLL"
+    return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
 
 trigger_functions = {
     "Boatspeed (Knots)": process_boatspeed_nmea,
@@ -223,7 +237,10 @@ trigger_functions = {
     "Apparent Wind Speed (Raw)":measured_wind_angle_speed,
     "Tidal Drift":tide_drift,
     "Tidal Set":tide_set,
-    "Boatspeed (Raw)":raw_bsp
+    "Boatspeed (Raw)":raw_bsp,
+
+    "Heel Angle":process_roll,
+    "Fore/Aft Trim ":process_pitch
 }
 
 
