@@ -19,7 +19,9 @@ TIMEOUT = 0.1
 BYTE_SIZE = serial.EIGHTBITS
 STOP_BITS = serial.STOPBITS_TWO
 PARITY = serial.PARITY_ODD
+#BROADCAST_ADDRESS = "127.0.0.1"
 BROADCAST_ADDRESS = "255.255.255.255"
+
 DEFAULT_UDP_PORT = 2002
 OUTPUT_MONITOR_TIMEOUT = 1
 
@@ -319,7 +321,7 @@ def print_live_data():
 def read_input_source(input_source, is_file):
     if is_file:
         try:
-            time.sleep(.1)
+            time.sleep(TIMEOUT)
             return next(input_source)
         except StopIteration:
             logger.info("Finished reading from file.")
