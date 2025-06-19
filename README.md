@@ -60,6 +60,8 @@ I have found the USB dongle works out of the box.
 	- Measured Wind Angle (Raw)
 	- Measured Wind Speed (Raw)
 	- Battery Voltage
+	- Heel
+	- Fore/Aft trim
 
 **Console output**
 
