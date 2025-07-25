@@ -15,7 +15,7 @@ from fastnet_decoder import FrameBuffer, logger, set_log_level
 
 # Configuration Constants
 BAUDRATE = 28800
-TIMEOUT = 0.1
+TIMEOUT = 0.05
 BYTE_SIZE = serial.EIGHTBITS
 STOP_BITS = serial.STOPBITS_TWO
 PARITY = serial.PARITY_ODD
@@ -181,7 +181,7 @@ def measured_wind_angle_raw(wind_angle_raw):
     """
     Generate NMEA sentence for measured wind angle (raw).
     """
-    xdr_sentence = f"IIXDR,A,{wind_angle_raw:.2f},V,WIND_A_RAW"
+    xdr_sentence = f"IIXDR,A,{wind_angle_raw:.2f},V,RAW_WIND_A"
     return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
 
 
@@ -189,7 +189,7 @@ def measured_wind_angle_speed(wind_angle_speed):
     """
     Generate NMEA sentence for measured wind speed (raw).
     """
-    xdr_sentence = f"IIXDR,N,{wind_angle_speed:.2f},V,WIND_S_RAW"
+    xdr_sentence = f"IIXDR,N,{wind_angle_speed:.2f},V,RAW_WIND_S"
     return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
 
 
