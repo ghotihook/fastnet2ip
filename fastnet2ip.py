@@ -77,7 +77,7 @@ def process_twd_nmea(twd):
     """
     Generate NMEA sentence for true wind direction.
     """
-    mwd_sentence = f"WIMWD,,,{twd:.1f},M,,N"
+    mwd_sentence = f"WIMWD,,,{twd:.1f},M,,,,"
     return f"${mwd_sentence}*{calculate_nmea_checksum(mwd_sentence)}\n"
 
 
