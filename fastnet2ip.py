@@ -34,279 +34,438 @@ live_data_lock = threading.Lock()
 
 
 # triggers
-def process_boatspeed_nmea(boatspeed):
+def process_vhw():
     """
-    Generate NMEA sentence for boatspeed (VHW).
+    Generate NMEA VHW sentence for magnetic heading and boatspeed,
+    pulling both values via get_live_data().
     """
-    hdg_m = get_live_data("Heading")  # returns a finite float or None
-    if hdg_m is not None:
-        hdg_str = f"{hdg_m:.1f}"
-        vhw_sentence = f"IIVHW,,,{hdg_str},M,{boatspeed:.1f},N,,"
+    # --- Magnetic Heading
+    hdg = get_live_data("Heading")  # finite float or None
+    # --- Boatspeed
+    bs = get_live_data("Boatspeed (Knots)")  # finite float or None
+
+    # format or blank
+    if hdg is not None:
+        hdg_str = f"{hdg:.1f}"
+        bs_str  = f"{bs:.1f}" if bs is not None else ""
+        # include the 'M' only if we have a heading
+        body = f"IIVHW,,,{hdg_str},M,{bs_str},N,,"
     else:
-        vhw_sentence = f"IIVHW,,,,,{boatspeed:.1f},N,,"
+        bs_str = f"{bs:.1f}" if bs is not None else ""
+        # omit heading fields entirely
+        body = f"IIVHW,,,,,{bs_str},N,,"
 
-    checksum = calculate_nmea_checksum(vhw_sentence)
-    return f"${vhw_sentence}*{checksum}\n"
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\n"
 
-
-def process_depth_nmea(depth):
+def process_dbt():
     """
-    Generate NMEA sentence for depth.
+    Generate NMEA DBT sentence for depth below transducer,
+    pulling feet, meters and fathoms via get_live_data().
     """
-    df = get_live_data("Depth (Feet)")
-    dm = get_live_data("Depth (Meters)")
+    # Pull each depth channel (finite float or None)
+    df  = get_live_data("Depth (Feet)")
+    dm  = get_live_data("Depth (Meters)")
     dfa = get_live_data("Depth (Fathoms)")
 
     # Format to one decimal if present, else empty
-    depth_feet    = f"{df:.1f}" if df is not None else ""
-    depth_meters  = f"{dm:.1f}" if dm is not None else ""
+    depth_feet    = f"{df:.1f}"  if df  is not None else ""
+    depth_meters  = f"{dm:.1f}"  if dm  is not None else ""
     depth_fathoms = f"{dfa:.1f}" if dfa is not None else ""
 
-    dbt_sentence = f"IIDBT,{depth_feet},f,{depth_meters},M,{depth_fathoms},F"
-    return f"${dbt_sentence}*{calculate_nmea_checksum(dbt_sentence)}\n"
+    # Build DBT payload
+    body = f"IIDBT,{depth_feet},f,{depth_meters},M,{depth_fathoms},F"
+
+    # Calculate checksum and return full sentence
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\r\n"
 
 
-def process_rudder_angle_nmea(rudder_angle):
+def process_rsa():
     """
-    Generate NMEA sentence for rudder angle.
+    Generate NMEA RSA sentence for rudder angle,
+    pulling the angle via get_live_data().
     """
-    direction = "A"  # "A" indicates valid data
-    rsa_sentence = f"IIRSA,{rudder_angle:.1f},{direction},,{direction}"
-    return f"${rsa_sentence}*{calculate_nmea_checksum(rsa_sentence)}\n"
+    # Pull the rudder angle (finite float or None)
+    ra = get_live_data("Rudder Angle")
+
+    if ra is not None:
+        # valid angle → format and mark "A"
+        ra_str = f"{ra:.1f}"
+        status = "A"
+    else:
+        # missing/invalid → leave blank and mark "V"
+        ra_str = ""
+        status = "V"
+
+    # Build RSA payload: <angle>,<status>,,<status>
+    body = f"IIRSA,{ra_str},{status},,{status}"
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\r\n"
 
 
-def process_battery_volts_nmea(battery_volts):
+def process_xdr_battv():
     """
-    Generate NMEA sentence for battery voltage.
+    Generate NMEA XDR sentence for battery voltage,
+    pulling the voltage via get_live_data().
     """
-    xdr_sentence = f"IIXDR,U,{battery_volts:.2f},V,BATTV"
-    return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
+    # Pull the battery voltage (finite float or None)
+    bv = get_live_data("Battery Voltage")
+    # Format to two decimals if present, else leave empty
+    bv_str = f"{bv:.2f}" if bv is not None else ""
+    # Build XDR payload: transducer type U (voltage), value, unit V, name BATTV
+    body = f"IIXDR,U,{bv_str},V,BATTV"
+    # Calculate checksum and return full sentence
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\n"
 
+def process_mwd():
+    """
+    Generate NMEA MWD sentence for true wind direction and speed,
+    pulling both fields via get_live_data().
+    """
+    # --- True Wind Direction (TWD)
+    twd = get_live_data("True Wind Direction")  # finite float or None
+    if twd is not None and twd < 0:
+        twd += 360
+    twd_str = f"{twd:.1f}" if twd is not None else ""
 
-def process_twd_nmea(twd):
-    """
-    Generate NMEA sentence for true wind direction.
-    """
-    tws = get_live_data("True Wind Speed (Knots)")
-    tws_m = tws * 0.5144
-    mwd_sentence = f"WIMWD,,,{twd:.1f},M,{tws:.1f},N,{tws_m:.1f},M"
-    return f"${mwd_sentence}*{calculate_nmea_checksum(mwd_sentence)}\n"
+    # --- True Wind Speed (TWS) in knots
+    tws = get_live_data("True Wind Speed (Knots)")  # finite float or None
+    tws_str = f"{tws:.1f}" if tws is not None else ""
 
+    # --- Convert knots → m/s
+    if tws is not None:
+        tws_ms = tws * 1852.0 / 3600.0
+        tws_ms_str = f"{tws_ms:.1f}"
+    else:
+        tws_ms_str = ""
 
-def process_tws_nmea(tws):
+    # --- Build MWD payload
+    # Format: WI MWD ,,,{TWD},M,{TWS},N,{TWS_m/s},M
+    body = f"WIMWD,,,{twd_str},M,{tws_str},N,{tws_ms_str},M"
+
+    # --- Checksum and sentence
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\r\n"
+
+def process_mwv_true():
     """
-    Generate NMEA sentence for true wind speed and angle.
+    Generate NMEA MWV sentence for true wind (reference 'T'),
+    pulling both angle and speed via get_live_data().
     """
-    twa = get_live_data("True Wind Angle")
+    # --- True Wind Angle (TWA)
+    twa = get_live_data("True Wind Angle")  # finite float or None
     if twa is not None and twa < 0:
-        twa += 360 # Convert -180 to 180 range to 0 to 360
-    mwv_sentence = f"IIMWV,{twa:.1f},T,{tws:.1f},N,A"
-    return f"${mwv_sentence}*{calculate_nmea_checksum(mwv_sentence)}\n"
+        twa += 360
+    twa_str = f"{twa:.1f}" if twa is not None else ""
 
-def process_twa_nmea(twa):
+    # --- True Wind Speed (TWS)
+    tws = get_live_data("True Wind Speed (Knots)")  # finite float or None
+    tws_str = f"{tws:.1f}" if tws is not None else ""
+
+    # --- Status flag: A = valid, V = invalid
+    status = "A" if (twa_str and tws_str) else "V"
+
+    # --- Assemble MWV body and checksum
+    body = f"IIMWV,{twa_str},T,{tws_str},N,{status}"
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\n"
+
+def process_mwv_apparent():
     """
-    Generate NMEA sentence for true wind speed and angle.
+    Generate NMEA MWV sentence for apparent wind (reference 'R'),
+    pulling both angle and speed via get_live_data().
     """
-    tws = get_live_data("True Wind Speed (Knots)")
-    if not isnan(twa) and twa < 0:
-        twa += 360  # Convert -180 to 180 range to 0 to 360
-    mwv_sentence = f"IIMWV,{twa:.1f},T,{tws:.1f},N,A"
-    return f"${mwv_sentence}*{calculate_nmea_checksum(mwv_sentence)}\n"
+    # --- Apparent Wind Angle (AWA)
+    awa = get_live_data("Apparent Wind Angle")  # finite float or None
+    if awa is not None and awa < 0:
+        awa += 360
+    awa_str = f"{awa:.1f}" if awa is not None else ""
 
-def process_aws_nmea(aws):
+    # --- Apparent Wind Speed (AWS)
+    aws = get_live_data("Apparent Wind Speed (Knots)")  # finite float or None
+    aws_str = f"{aws:.1f}" if aws is not None else ""
+
+    # --- Status flag: A = valid, V = invalid
+    status = "A" if (awa_str and aws_str) else "V"
+
+    # --- Assemble MWV body and checksum
+    body = f"IIMWV,{awa_str},R,{aws_str},N,{status}"
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\r\n"
+
+def process_mtw():
     """
-    Generate NMEA sentence for apparent wind speed and angle.
+    Generate NMEA MTW sentence for sea temperature,
+    pulling the temperature via get_live_data().
     """
-    awa = get_live_data("Apparent Wind Angle")
-    if not isnan(awa) and awa < 0:
-        awa += 360  # Convert -180 to 180 range to 0 to 360
-    mwv_sentence = f"IIMWV,{awa:.1f},R,{aws:.1f},N,A"  # "R" for relative wind angle
-    return f"${mwv_sentence}*{calculate_nmea_checksum(mwv_sentence)}\n"
+    # Pull sea temperature (finite float or None)
+    st = get_live_data("Sea Temperature")
 
-def process_awa_nmea(awa):
-    """
-    Generate NMEA sentence for apparent wind speed and angle.
-    """
-    aws = get_live_data("Apparent Wind Speed (Knots)")
-    if not isnan(awa) and awa < 0:
-        awa += 360  # Convert -180 to 180 range to 0 to 360
-    mwv_sentence = f"IIMWV,{awa:.1f},R,{aws:.1f},N,A"  # "R" for relative wind angle
-    return f"${mwv_sentence}*{calculate_nmea_checksum(mwv_sentence)}\n"
+    # Format to one decimal if present, else leave blank
+    temp_str = f"{st:.1f}" if st is not None else ""
 
-
-def process_sea_temperature_nmea(sea_temp):
-    """
-    Generate NMEA sentence for sea temperature.
-    """
-    mtw_sentence = f"IIMTW,{sea_temp:.1f},C"
-    return f"${mtw_sentence}*{calculate_nmea_checksum(mtw_sentence)}\n"
-
-
-def process_heading_nmea(heading):
-    """
-    Generate NMEA sentence for heading.
-    """
-    hdg_sentence = f"IIHDG,{heading:.1f},,,,"
-    return f"${hdg_sentence}*{calculate_nmea_checksum(hdg_sentence)}\n"
-
-
-def process_cog_sog_nmea(sog):
-    """
-    Generate NMEA VTG sentence for track made good and ground speed.
-    """
-    # --- True Track
-    true_track = ''
-    tt = get_live_data("Course Over Ground (True)")
-    if tt is not None:
-        try:
-            tt_f = float(tt)
-            if not isnan(tt_f):
-                true_track = f"{tt_f:.1f}"
-            else:
-                logger.debug("VTG: True Track is NaN, leaving empty.")
-        except (ValueError, TypeError):
-            logger.debug(f"VTG: True Track invalid ({tt!r}), leaving empty.")
-
-    # --- Magnetic Track
-    mag_track = ''
-    mt = get_live_data("Course Over Ground (Mag)")
-    if mt is not None:
-        try:
-            mt_d = Decimal(mt)
-            mag_track = f"{mt_d:.1f}"
-        except (ValueError, TypeError, Decimal.InvalidOperation):
-            logger.debug(f"VTG: Magnetic Track invalid ({mt!r}), leaving empty.")
-
-    # --- Speed Over Ground (knots) and km/h
-    sog_kts = ''
-    sog_kmph = ''
-    try:
-        sog_f = float(sog)
-        if not isnan(sog_f):
-            sog_kts = f"{sog_f:.1f}"
-            sog_kmph = f"{(sog_f * 1.852):.1f}"
-        else:
-            logger.debug("VTG: SOG is NaN, leaving speed fields empty.")
-    except (ValueError, TypeError):
-        logger.debug(f"VTG: SOG invalid ({sog!r}), leaving speed fields empty.")
-
-    # --- FAA Mode Indicator (leave blank or pull from live data if available)
-    faa_mode = 'A'
-
-    # Build the VTG payload (everything after "IIVTG,")
-    fields = [
-        true_track,       # True Track made good
-        "T" if true_track else "",
-        mag_track,        # Magnetic Track made good
-        "M" if mag_track else "",
-        sog_kts,          # Speed over ground in knots
-        "N" if sog_kts else "",
-        sog_kmph,         # Speed over ground in km/h
-        "K" if sog_kmph else "",
-        faa_mode
-    ]
-    body = "IIVTG," + ",".join(fields)
+    # Build MTW payload
+    body = f"IIMTW,{temp_str},C"
 
     # Calculate checksum and return full sentence
     checksum = calculate_nmea_checksum(body)
     return f"${body}*{checksum}\n"
 
-def process_gll_nmea(latlon_str):
+def process_hdm():
     """
-    Generate NMEA sentence for latitude and longitude.
+    Generate NMEA HDM sentence for magnetic heading,
+    pulling the heading via get_live_data().
     """
-    lat_split_idx = max(latlon_str.find('N'), latlon_str.find('S'))
-    lon_split_idx = max(latlon_str.find('E'), latlon_str.find('W'))
-    if lat_split_idx == -1 or lon_split_idx == -1:
-        raise ValueError("Invalid lat/lon format")
-    lat_part = latlon_str[:lat_split_idx]
-    lat_dir = latlon_str[lat_split_idx]
-    lon_part = latlon_str[lat_split_idx + 1:lon_split_idx]
-    lon_dir = latlon_str[lon_split_idx]
-    current_time = datetime.utcnow().strftime("%H%M%S")
-    gll_sentence = f"GPGLL,{lat_part},{lat_dir},{lon_part},{lon_dir},{current_time},A"
-    return f"${gll_sentence}*{calculate_nmea_checksum(gll_sentence)}\n"
+    # Pull the magnetic heading (finite float or None)
+    mag = get_live_data("Heading")
+
+    # Format to one decimal if present, else leave blank
+    mag_str = f"{mag:.1f}" if mag is not None else ""
+
+    # Build HDM payload: <heading degrees magnetic>,M
+    body = f"IIHDM,{mag_str},M"
+
+    # Calculate checksum and return full sentence
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\r\n"
 
 
-def measured_wind_angle_raw(wind_angle_raw):
+def process_vtg():
     """
-    Generate NMEA sentence for measured wind angle (raw).
+    Generate NMEA VTG sentence for track made good and ground speed,
+    pulling all fields via get_live_data().
     """
-    xdr_sentence = f"IIXDR,A,{wind_angle_raw:.2f},V,RAW_WIND_A"
-    return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
+    # --- True Track made good (degrees true)
+    tt = get_live_data("Course Over Ground (True)")
+    if tt is not None and tt < 0:
+        tt += 360
+    tt_str = f"{tt:.1f}" if tt is not None else ""
+
+    # --- Magnetic Track made good (degrees mag)
+    mt = get_live_data("Course Over Ground (Mag)")
+    if mt is not None and mt < 0:
+        mt += 360
+    mt_str = f"{mt:.1f}" if mt is not None else ""
+
+    # --- Speed over ground (knots) and km/h
+    sog = get_live_data("Speed Over Ground (Knots)")
+    kts_str  = f"{sog:.1f}"                if sog is not None else ""
+    kmph_str = f"{(sog * 1.852):.1f}"      if sog is not None else ""
+
+    # --- FAA mode indicator: “A” = valid if we have a knot speed, else “V”
+    mode = "A" if kts_str else "V"
+
+    # --- Assemble fields in order
+    fields = [
+        tt_str,                     # True track
+        "T" if tt_str else "",      # True track symbol
+        mt_str,                     # Magnetic track
+        "M" if mt_str else "",      # Mag track symbol
+        kts_str,                    # SOG in knots
+        "N" if kts_str else "",     # Knots symbol
+        kmph_str,                   # SOG in km/h
+        "K" if kmph_str else "",    # km/h symbol
+        mode                        # FAA mode
+    ]
+    body = "IIVTG," + ",".join(fields)
+
+    # --- Checksum and wrap
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\r\n"
 
 
-def measured_wind_angle_speed(wind_angle_speed):
+def process_gll():
     """
-    Generate NMEA sentence for measured wind speed (raw).
+    Generate NMEA GLL sentence for geographic position,
+    pulling a combined lat/lon string via get_live_data().
     """
-    xdr_sentence = f"IIXDR,N,{wind_angle_speed:.2f},V,RAW_WIND_S"
-    return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
+    # Pull the raw lat/lon string (e.g. "4916.45N12311.12W")
+    latlon_str = get_live_data("LatLon", as_string=True)
+    if not latlon_str:
+        return None
+
+    # find where latitude ends (N or S) and longitude ends (E or W)
+    lat_idx = max(latlon_str.find('N'), latlon_str.find('S'))
+    lon_idx = max(latlon_str.find('E'), latlon_str.find('W'))
+    if lat_idx == -1 or lon_idx == -1:
+        logger.debug(f"GLL: invalid position format ({latlon_str!r})")
+        return None
+
+    # split into parts
+    lat_part = latlon_str[:lat_idx]
+    lat_dir  = latlon_str[lat_idx]
+    lon_part = latlon_str[lat_idx+1:lon_idx]
+    lon_dir  = latlon_str[lon_idx]
+
+    # UTC time of fix
+    time_str = datetime.utcnow().strftime("%H%M%S")
+
+    # build GLL body and wrap with checksum
+    body = f"GPGLL,{lat_part},{lat_dir},{lon_part},{lon_dir},{time_str},A"
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\r\n"
 
 
-def tide_drift(tide_drift_spd):
+def process_xdr_raw_wind_angle():
     """
-    Generate NMEA sentence for measured wind speed (raw).
+    Generate NMEA XDR sentence for measured wind angle (raw),
+    pulling the raw angle via get_live_data().
     """
-    xdr_sentence = f"IIXDR,N,{tide_drift_spd:.2f},V,DRIFT"
-    return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
+    # Pull the raw wind-angle measurement (finite float or None)
+    rwa = get_live_data("Measured Wind Angle Raw")
 
-def tide_set(tide_set_angle):
-    """
-    Generate NMEA sentence for measured wind angle (raw).
-    """
-    xdr_sentence = f"IIXDR,A,{tide_set_angle:.2f},V,SET"
-    return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
+    # Format to two decimals if present, else leave empty
+    rwa_str = f"{rwa:.2f}" if rwa is not None else ""
 
-def raw_bsp(raw_bsp):
-    """
-    Generate NMEA sentence for measured wind angle (raw).
-    """
-    xdr_sentence = f"IIXDR,A,{raw_bsp:.2f},V,RAW_BSP"
-    return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
+    # Build XDR payload: type A (angle), value, unit V, name RAW_WIND_A
+    body = f"IIXDR,A,{rwa_str},V,RAW_WIND_A"
 
-def process_roll(roll):
-    """
-    Generate NMEA sentence roll/heel
-    """
-    xdr_sentence = f"IIXDR,A,{roll:.2f},D,ROLL"
-    return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
+    # Calculate checksum and return full sentence
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\r\n"
 
 
-def process_pitch(pitch):
+def process_xdr_raw_wind_s():
     """
-    Generate NMEA sentence for pitch
+    Generate NMEA XDR sentence for measured wind speed (raw),
+    pulling the raw speed via get_live_data().
     """
-    xdr_sentence = f"IIXDR,A,{pitch:.2f},D,PITCH"
-    return f"${xdr_sentence}*{calculate_nmea_checksum(xdr_sentence)}\n"
+    # Pull the raw wind-speed measurement (finite float or None)
+    rws = get_live_data("Measured Wind Speed Raw")
+
+    # Format to two decimals if present, else leave empty
+    rws_str = f"{rws:.2f}" if rws is not None else ""
+
+    # Build XDR payload: type N (speed), value, unit V, name RAW_WIND_S
+    body = f"IIXDR,N,{rws_str},V,RAW_WIND_S"
+
+    # Calculate checksum and return full sentence
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\r\n"
+
+
+def process_xdr_drift():
+    """
+    Generate NMEA XDR sentence for tide drift speed,
+    pulling the drift speed via get_live_data().
+    """
+    # Pull the drift speed (finite float or None)
+    drift = get_live_data("Tide Drift Speed")
+
+    # Format to two decimals if present, else leave empty
+    drift_str = f"{drift:.2f}" if drift is not None else ""
+
+    # Build XDR payload: type N (speed), value, unit V, name DRIFT
+    body = f"IIXDR,N,{drift_str},V,DRIFT"
+
+    # Calculate checksum and return full sentence
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\r\n"
+
+def process_xdr_set():
+    """
+    Generate NMEA XDR sentence for tide set angle,
+    pulling the set angle via get_live_data().
+    """
+    # Pull the tide set angle (finite float or None)
+    ts = get_live_data("Tide Set Angle")
+
+    # Format to two decimals if present, else leave empty
+    ts_str = f"{ts:.2f}" if ts is not None else ""
+
+    # Build XDR payload: type A (angle), value, unit V, name SET
+    body = f"IIXDR,A,{ts_str},V,SET"
+
+    # Calculate checksum and return full sentence
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\r\n"
+
+def process_xdr_raw_bsp():
+    """
+    Generate NMEA XDR sentence for raw boat speed (BSP),
+    pulling the raw value via get_live_data().
+    """
+    # Pull the raw BSP measurement (finite float or None)
+    raw = get_live_data("Raw BSP")
+
+    # Format to two decimals if present, else leave empty
+    raw_str = f"{raw:.2f}" if raw is not None else ""
+
+    # Build XDR payload: type N (speed), value, unit V, name RAW_BSP
+    body = f"IIXDR,N,{raw_str},V,RAW_BSP"
+
+    # Calculate checksum and return full sentence
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\r\n"
+
+def process_xdr_roll():
+    """
+    Generate NMEA XDR sentence for roll angle,
+    pulling the roll value via get_live_data().
+    """
+    # Pull the roll angle (finite float or None)
+    ra = get_live_data("Roll")
+
+    # Format to two decimals if present, else leave empty
+    ra_str = f"{ra:.2f}" if ra is not None else ""
+
+    # Build XDR payload: type A (angle), value, unit D (degrees), name ROLL
+    body = f"IIXDR,A,{ra_str},D,ROLL"
+
+    # Calculate checksum and return full sentence
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\r\n"
+
+
+def process_xdr_pitch():
+    """
+    Generate NMEA XDR sentence for pitch angle,
+    pulling the pitch value via get_live_data().
+    """
+    # Pull the pitch angle (finite float or None)
+    pt = get_live_data("Pitch")
+
+    # Format to two decimals if present, else leave empty
+    pt_str = f"{pt:.2f}" if pt is not None else ""
+
+    # Build XDR payload: type A (angle), value, unit D (degrees), name PITCH
+    body = f"IIXDR,A,{pt_str},D,PITCH"
+
+    # Calculate checksum and return full sentence
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\r\n"
 
 
 trigger_functions = {
-    "Boatspeed (Knots)": process_boatspeed_nmea,
-    "Depth (Meters)": process_depth_nmea,
-    "Rudder Angle": process_rudder_angle_nmea,
-    "Battery Volts": process_battery_volts_nmea,
-    "True Wind Direction": process_twd_nmea,
+    "Boatspeed (Knots)": process_vhw,
+    "Depth (Meters)": process_dbt,
+    "Rudder Angle": process_rsa,
+    "Battery Volts": process_xdr_battv,
+    "True Wind Direction": process_mwd,
     
-    "True Wind Speed (Knots)": process_tws_nmea,        #Also relies on TWA
-    "True Wind Angle": process_twa_nmea,        #Also relies on TWA
+    "True Wind Speed (Knots)": process_mwv_true,
+    "True Wind Angle": process_mwv_true,     
 
-    "Apparent Wind Speed (Knots)": process_aws_nmea,    #Also relies on AWA
-    "Apparent Wind Angle": process_awa_nmea,
+    "Apparent Wind Speed (Knots)": process_mwv_apparent,
+    "Apparent Wind Angle": process_mwv_apparent,
     
-    "Sea Temperature (°C)": process_sea_temperature_nmea,
-    "Heading": process_heading_nmea,
+    "Sea Temperature (°C)": process_mtw,
+    "Heading": process_hdm,
   
-    "Speed Over Ground": process_cog_sog_nmea,              #Also relies on COG
+    "Speed Over Ground": process_vtg,  
+    "Course Over Ground (Mag)": process_vtg,  
+    "Course Over Ground (True)": process_vtg,  
 
-    "LatLon":process_gll_nmea,
-    "Apparent Wind Angle (Raw)":measured_wind_angle_raw,
-    "Apparent Wind Speed (Raw)":measured_wind_angle_speed,
-    "Tidal Drift":tide_drift,
-    "Tidal Set":tide_set,
-    "Boatspeed (Raw)":raw_bsp,
-    "Heel Angle":process_roll,
-    "Fore/Aft Trim":process_pitch
+    "LatLon":process_gll,
+    "Apparent Wind Angle (Raw)":process_xdr_raw_wind_angle,
+    "Apparent Wind Speed (Raw)":process_xdr_raw_wind_s,
+    "Tidal Drift":process_xdr_drift,
+    "Tidal Set":process_xdr_set,
+    "Boatspeed (Raw)":process_xdr_raw_bsp,
+    "Heel Angle":process_xdr_roll,
+    "Fore/Aft Trim":process_xdr_pitch
 }
 
 
@@ -372,14 +531,43 @@ def update_live_data(channel_name, channel_id, interpreted_value):
     #logger.debug(f"Live Data Updated: {channel_name} (ID: {channel_id}) = {interpreted_value} at {timestamp}")
 
 
-def trigger_nmea_sentence(channel_name, interpreted_value):
+#def trigger_nmea_sentence(channel_name, interpreted_value):
+#    """
+#    Executes the corresponding trigger function for the given channel name
+#    and returns the generated NMEA sentence.
+#
+#    Args:
+#        channel_name (str): The name of the channel (e.g., "Boatspeed (Knots)").
+#        interpreted_value (any): The interpreted value to process.#
+#
+#    Returns:
+#        str or None: The NMEA sentence, or None if no sentence is generated.
+#    """
+#    trigger_function = trigger_functions.get(channel_name)
+#    if not trigger_function:
+#        logger.warning(f"No trigger function defined for channel: {channel_name}. Skipping.")
+#        return None#
+##
+#   try:
+#        logger.debug(f"Triggering function for {channel_name} with value: {interpreted_value}")
+#        message = trigger_function(interpreted_value)
+#        if not message:
+#            logger.warning(f"Trigger function for {channel_name} returned no message. Value: {interpreted_value}")
+#        return message
+#    except Exception as e:
+#        logger.info(f"Error executing trigger function for {channel_name} with value {interpreted_value}: {e}")
+#        return None
+
+
+
+def trigger_nmea_sentence(channel_name):
     """
     Executes the corresponding trigger function for the given channel name
     and returns the generated NMEA sentence.
 
     Args:
         channel_name (str): The name of the channel (e.g., "Boatspeed (Knots)").
-        interpreted_value (any): The interpreted value to process.
+        interpreted_value (any): The interpreted value (now unused).
 
     Returns:
         str or None: The NMEA sentence, or None if no sentence is generated.
@@ -390,15 +578,16 @@ def trigger_nmea_sentence(channel_name, interpreted_value):
         return None
 
     try:
-        logger.debug(f"Triggering function for {channel_name} with value: {interpreted_value}")
-        message = trigger_function(interpreted_value)
+        logger.debug(f"Triggering function for {channel_name}")
+        # call with no arguments
+        message = trigger_function()
         if not message:
-            logger.warning(f"Trigger function for {channel_name} returned no message. Value: {interpreted_value}")
+            logger.warning(f"Trigger function for {channel_name} returned no message.")
         return message
-    except Exception as e:
-        logger.info(f"Error executing trigger function for {channel_name} with value {interpreted_value}: {e}")
-        return None
 
+    except Exception as e:
+        logger.error(f"Error executing trigger for {channel_name}: {e}")
+        return None
 
 
 
@@ -461,7 +650,8 @@ def process_frame_queue(frame_queue, udp_socket, udp_port):
                     update_live_data(channel_name, channel_id, interpreted_value)
 
                     # Generate and broadcast NMEA sentence
-                    message = trigger_nmea_sentence(channel_name, interpreted_value)
+                    #message = trigger_nmea_sentence(channel_name, interpreted_value)
+                    message = trigger_nmea_sentence(channel_name)
                     if message:
                         try:
                             udp_socket.sendto(message.encode(), (BROADCAST_ADDRESS, udp_port))
