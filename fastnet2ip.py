@@ -88,7 +88,8 @@ def process_twd_nmea(twd):
     Generate NMEA sentence for true wind direction.
     """
     tws = get_live_data("True Wind Speed (Knots)")
-    mwd_sentence = f"WIMWD,,,{twd:.1f},M,{tws:.1f},N,,"
+    tws_m = tws * 0.5144
+    mwd_sentence = f"WIMWD,,,{twd:.1f},M,{tws:.1f},N,{tws_m:.1f},M"
     return f"${mwd_sentence}*{calculate_nmea_checksum(mwd_sentence)}\n"
 
 
