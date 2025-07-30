@@ -78,7 +78,7 @@ def process_dbt():
 
     # Calculate checksum and return full sentence
     checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\r\n"
+    return f"${body}*{checksum}\n"
 
 
 def process_rsa():
@@ -101,7 +101,7 @@ def process_rsa():
     # Build RSA payload: <angle>,<status>,,<status>
     body = f"IIRSA,{ra_str},{status},,{status}"
     checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\r\n"
+    return f"${body}*{checksum}\n"
 
 
 def process_xdr_battv():
@@ -147,7 +147,7 @@ def process_mwd():
 
     # --- Checksum and sentence
     checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\r\n"
+    return f"${body}*{checksum}\n"
 
 def process_mwv_true():
     """
@@ -193,7 +193,7 @@ def process_mwv_apparent():
     # --- Assemble MWV body and checksum
     body = f"IIMWV,{awa_str},R,{aws_str},N,{status}"
     checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\r\n"
+    return f"${body}*{checksum}\n"
 
 def process_mtw():
     """
@@ -229,7 +229,7 @@ def process_hdm():
 
     # Calculate checksum and return full sentence
     checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\r\n"
+    return f"${body}*{checksum}\n"
 
 
 def process_vtg():
@@ -273,7 +273,7 @@ def process_vtg():
 
     # --- Checksum and wrap
     checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\r\n"
+    return f"${body}*{checksum}\n"
 
 
 def process_gll():
@@ -305,7 +305,7 @@ def process_gll():
     # build GLL body and wrap with checksum
     body = f"GPGLL,{lat_part},{lat_dir},{lon_part},{lon_dir},{time_str},A"
     checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\r\n"
+    return f"${body}*{checksum}\n"
 
 
 def process_xdr_raw_wind_angle():
@@ -324,7 +324,7 @@ def process_xdr_raw_wind_angle():
 
     # Calculate checksum and return full sentence
     checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\r\n"
+    return f"${body}*{checksum}\n"
 
 
 def process_xdr_raw_wind_s():
@@ -343,7 +343,7 @@ def process_xdr_raw_wind_s():
 
     # Calculate checksum and return full sentence
     checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\r\n"
+    return f"${body}*{checksum}\n"
 
 
 def process_xdr_drift():
@@ -362,7 +362,7 @@ def process_xdr_drift():
 
     # Calculate checksum and return full sentence
     checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\r\n"
+    return f"${body}*{checksum}\n"
 
 def process_xdr_set():
     """
@@ -380,7 +380,7 @@ def process_xdr_set():
 
     # Calculate checksum and return full sentence
     checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\r\n"
+    return f"${body}*{checksum}\n"
 
 def process_xdr_raw_bsp():
     """
@@ -398,7 +398,7 @@ def process_xdr_raw_bsp():
 
     # Calculate checksum and return full sentence
     checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\r\n"
+    return f"${body}*{checksum}\n"
 
 def process_xdr_roll():
     """
@@ -416,7 +416,7 @@ def process_xdr_roll():
 
     # Calculate checksum and return full sentence
     checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\r\n"
+    return f"${body}*{checksum}\n"
 
 
 def process_xdr_pitch():
@@ -435,7 +435,7 @@ def process_xdr_pitch():
 
     # Calculate checksum and return full sentence
     checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\r\n"
+    return f"${body}*{checksum}\n"
 
 
 trigger_functions = {
