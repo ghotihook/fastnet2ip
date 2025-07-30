@@ -5,6 +5,7 @@ import serial
 import queue
 import socket
 import select
+from math import isnan
 #import logging  # Ensure logging is imported
 
 from datetime import datetime
@@ -38,12 +39,11 @@ def process_boatspeed_nmea(boatspeed):
     Generate NMEA sentence for boatspeed.
     """
     hdg_m = get_live_data("Heading")
-    if hdg_m is not None:
+    if not isnan (hdg_m):
         vhw_sentence = f"IIVHW,,,{hdg_m},M,{boatspeed:.1f},N,,"
     else:
         vhw_sentence = f"IIVHW,,,,,{boatspeed:.1f},N,,"
     return f"${vhw_sentence}*{calculate_nmea_checksum(vhw_sentence)}\n"
-
 
 
 
@@ -77,7 +77,8 @@ def process_twd_nmea(twd):
     """
     Generate NMEA sentence for true wind direction.
     """
-    mwd_sentence = f"WIMWD,,,{twd:.1f},M,,,,"
+    tws = get_live_data("True Wind Speed (Knots)")
+    mwd_sentence = f"WIMWD,,,{twd:.1f},M,{tws:.1f},N,,"
     return f"${mwd_sentence}*{calculate_nmea_checksum(mwd_sentence)}\n"
 
 
@@ -86,7 +87,7 @@ def process_tws_nmea(tws):
     Generate NMEA sentence for true wind speed and angle.
     """
     twa = get_live_data("True Wind Angle")
-    if twa is not None and twa < 0:
+    if not isnan (twa) and twa < 0:
         twa += 360  # Convert -180 to 180 range to 0 to 360
     mwv_sentence = f"IIMWV,{twa:.1f},T,{tws:.1f},N,A"
     return f"${mwv_sentence}*{calculate_nmea_checksum(mwv_sentence)}\n"
@@ -96,7 +97,7 @@ def process_twa_nmea(twa):
     Generate NMEA sentence for true wind speed and angle.
     """
     tws = get_live_data("True Wind Speed (Knots)")
-    if twa is not None and twa < 0:
+    if not isnan(twa) and twa < 0:
         twa += 360  # Convert -180 to 180 range to 0 to 360
     mwv_sentence = f"IIMWV,{twa:.1f},T,{tws:.1f},N,A"
     return f"${mwv_sentence}*{calculate_nmea_checksum(mwv_sentence)}\n"
@@ -106,7 +107,7 @@ def process_aws_nmea(aws):
     Generate NMEA sentence for apparent wind speed and angle.
     """
     awa = get_live_data("Apparent Wind Angle")
-    if awa is not None and awa < 0:
+    if not isnan(awa) and awa < 0:
         awa += 360  # Convert -180 to 180 range to 0 to 360
     mwv_sentence = f"IIMWV,{awa:.1f},R,{aws:.1f},N,A"  # "R" for relative wind angle
     return f"${mwv_sentence}*{calculate_nmea_checksum(mwv_sentence)}\n"
@@ -116,7 +117,7 @@ def process_awa_nmea(awa):
     Generate NMEA sentence for apparent wind speed and angle.
     """
     aws = get_live_data("Apparent Wind Speed (Knots)")
-    if awa is not None and awa < 0:
+    if not isnan(awa) and awa < 0:
         awa += 360  # Convert -180 to 180 range to 0 to 360
     mwv_sentence = f"IIMWV,{awa:.1f},R,{aws:.1f},N,A"  # "R" for relative wind angle
     return f"${mwv_sentence}*{calculate_nmea_checksum(mwv_sentence)}\n"
@@ -140,25 +141,64 @@ def process_heading_nmea(heading):
 
 def process_cog_sog_nmea(sog):
     """
-    Generate NMEA sentence for course over ground and speed over ground.
+    Generate NMEA VTG sentence for track made good and ground speed.
     """
-    cog = get_live_data("Course Over Ground (Mag)")
-    
-    cog_value = ''
-    if cog is not None:
+    # --- True Track
+    true_track = ''
+    tt = get_live_data("Course Over Ground (True)")
+    if tt is not None:
         try:
-            cog_float = float(cog)
-            if not isnan(cog_float):
-                cog_value = f"{cog_float:.1f}"
+            tt_f = float(tt)
+            if not isnan(tt_f):
+                true_track = f"{tt_f:.1f}"
             else:
-                logger.debug("COG value is NaN, using empty field in VTG sentence.")
+                logger.debug("VTG: True Track is NaN, leaving empty.")
         except (ValueError, TypeError):
-            logger.debug(f"COG value is not a valid float ({cog!r}), using empty field in VTG sentence.")
-    else:
-        logger.debug("COG value is None, using empty field in VTG sentence.")
+            logger.debug(f"VTG: True Track invalid ({tt!r}), leaving empty.")
 
-    vtg_sentence = f"IIVTG,,,{cog_value},M,{sog:.1f},N,,K"
-    return f"${vtg_sentence}*{calculate_nmea_checksum(vtg_sentence)}\n"
+    # --- Magnetic Track
+    mag_track = ''
+    mt = get_live_data("Course Over Ground (Mag)")
+    if mt is not None:
+        try:
+            mt_d = Decimal(mt)
+            mag_track = f"{mt_d:.1f}"
+        except (ValueError, TypeError, Decimal.InvalidOperation):
+            logger.debug(f"VTG: Magnetic Track invalid ({mt!r}), leaving empty.")
+
+    # --- Speed Over Ground (knots) and km/h
+    sog_kts = ''
+    sog_kmph = ''
+    try:
+        sog_f = float(sog)
+        if not isnan(sog_f):
+            sog_kts = f"{sog_f:.1f}"
+            sog_kmph = f"{(sog_f * 1.852):.1f}"
+        else:
+            logger.debug("VTG: SOG is NaN, leaving speed fields empty.")
+    except (ValueError, TypeError):
+        logger.debug(f"VTG: SOG invalid ({sog!r}), leaving speed fields empty.")
+
+    # --- FAA Mode Indicator (leave blank or pull from live data if available)
+    faa_mode = 'A'
+
+    # Build the VTG payload (everything after "IIVTG,")
+    fields = [
+        true_track,       # True Track made good
+        "T" if true_track else "",
+        mag_track,        # Magnetic Track made good
+        "M" if mag_track else "",
+        sog_kts,          # Speed over ground in knots
+        "N" if sog_kts else "",
+        sog_kmph,         # Speed over ground in km/h
+        "K" if sog_kmph else "",
+        faa_mode
+    ]
+    body = "IIVTG," + ",".join(fields)
+
+    # Calculate checksum and return full sentence
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\n"
 
 def process_gll_nmea(latlon_str):
     """
@@ -245,7 +285,9 @@ trigger_functions = {
     
     "Sea Temperature (°C)": process_sea_temperature_nmea,
     "Heading": process_heading_nmea,
+  
     "Speed Over Ground": process_cog_sog_nmea,              #Also relies on COG
+
     "LatLon":process_gll_nmea,
     "Apparent Wind Angle (Raw)":measured_wind_angle_raw,
     "Apparent Wind Speed (Raw)":measured_wind_angle_speed,
