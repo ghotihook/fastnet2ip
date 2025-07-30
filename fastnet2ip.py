@@ -98,8 +98,8 @@ def process_tws_nmea(tws):
     Generate NMEA sentence for true wind speed and angle.
     """
     twa = get_live_data("True Wind Angle")
-    if not isnan (twa) and twa < 0:
-        twa += 360  # Convert -180 to 180 range to 0 to 360
+    if twa is not None and twa < 0:
+        twa += 360 # Convert -180 to 180 range to 0 to 360
     mwv_sentence = f"IIMWV,{twa:.1f},T,{tws:.1f},N,A"
     return f"${mwv_sentence}*{calculate_nmea_checksum(mwv_sentence)}\n"
 
