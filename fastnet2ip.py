@@ -36,23 +36,33 @@ live_data_lock = threading.Lock()
 # triggers
 def process_boatspeed_nmea(boatspeed):
     """
-    Generate NMEA sentence for boatspeed.
+    Generate NMEA sentence for boatspeed (VHW).
     """
-    hdg_m = get_live_data("Heading")
-    if not isnan (hdg_m):
-        vhw_sentence = f"IIVHW,,,{hdg_m},M,{boatspeed:.1f},N,,"
+    hdg_m = get_live_data("Heading")  # returns a finite float or None
+    if hdg_m is not None:
+        hdg_str = f"{hdg_m:.1f}"
+        vhw_sentence = f"IIVHW,,,{hdg_str},M,{boatspeed:.1f},N,,"
     else:
         vhw_sentence = f"IIVHW,,,,,{boatspeed:.1f},N,,"
-    return f"${vhw_sentence}*{calculate_nmea_checksum(vhw_sentence)}\n"
 
-
+    checksum = calculate_nmea_checksum(vhw_sentence)
+    return f"${vhw_sentence}*{checksum}\n"
 
 
 def process_depth_nmea(depth):
     """
     Generate NMEA sentence for depth.
     """
-    dbt_sentence = f"IIDBT,,,{depth:.2f},M,,"
+    df = get_live_data("Depth (Feet)")
+    dm = get_live_data("Depth (Meters)")
+    dfa = get_live_data("Depth (Fathoms)")
+
+    # Format to one decimal if present, else empty
+    depth_feet    = f"{df:.1f}" if df is not None else ""
+    depth_meters  = f"{dm:.1f}" if dm is not None else ""
+    depth_fathoms = f"{dfa:.1f}" if dfa is not None else ""
+
+    dbt_sentence = f"IIDBT,{depth_feet},f,{depth_meters},M,{depth_fathoms},F"
     return f"${dbt_sentence}*{calculate_nmea_checksum(dbt_sentence)}\n"
 
 
@@ -308,16 +318,42 @@ def calculate_nmea_checksum(sentence):
     return f"{checksum:02X}"
 
 
-def get_live_data(name):
-    """
-    Retrieve live data by channel name.
-    Returns the latest interpreted value or None if not available.
-    """
+#def get_live_data(name):
+#    """
+#    Retrieve live data by channel name.
+#    Returns the latest interpreted value or None if not available.
+#    """
+#    with live_data_lock:
+#        data = live_data.get(name)
+#        if data:
+#            return data.get("interpreted_value")
+#        return None
+
+
+
+def get_live_data(name, as_string=False):
     with live_data_lock:
-        data = live_data.get(name)
-        if data:
-            return data.get("interpreted_value")
+        entry = live_data.get(name)
+    if not entry:
         return None
+
+    raw = entry.get("interpreted_value")
+    if raw is None:
+        return None
+
+    if as_string:
+        # Just return whatever was stored, as a string
+        return str(raw)
+
+    # Otherwise, try to parse + validate a float
+    try:
+        num = float(raw)
+    except (TypeError, ValueError):
+        logger.debug(f"get_live_data: {name!r} not a number ({raw!r})")
+        return None
+    return num
+
+
 
 
 
