@@ -253,7 +253,7 @@ def process_vtg():
     mt_str = f"{mt:.1f}" if mt is not None else ""
 
     # --- Speed over ground (knots) and km/h
-    sog = get_live_data("Speed Over Ground (Knots)")
+    sog = get_live_data("Speed Over Ground")
     kts_str  = f"{sog:.1f}"                if sog is not None else ""
     kmph_str = f"{(sog * 1.852):.1f}"      if sog is not None else ""
 
