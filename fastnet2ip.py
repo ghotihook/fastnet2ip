@@ -5,10 +5,12 @@ import serial
 import queue
 import socket
 import select
-from math import isnan
+from datetime import datetime, timezone, timedelta
+#from math import isnan
 #import logging  # Ensure logging is imported
 
-from datetime import datetime
+
+
 from fastnet_decoder import FrameBuffer, logger, set_log_level
 
 
@@ -20,12 +22,12 @@ TIMEOUT = 0.05
 BYTE_SIZE = serial.EIGHTBITS
 STOP_BITS = serial.STOPBITS_TWO
 PARITY = serial.PARITY_ODD
-#BROADCAST_ADDRESS = "127.0.0.1"
 BROADCAST_ADDRESS = "255.255.255.255"
 
 DEFAULT_UDP_PORT = 2002
 OUTPUT_MONITOR_TIMEOUT = 1
 
+REBROADCAST_AGE = 2 #if value is older then n seconds, re-send nmea message anyway
 frame_buffer = FrameBuffer()
 live_data = {}
 live_data_lock = threading.Lock()
@@ -300,7 +302,10 @@ def process_gll():
     lon_dir  = latlon_str[lon_idx]
 
     # UTC time of fix
-    time_str = datetime.utcnow().strftime("%H%M%S")
+    #time_str = datetime.utcnow().strftime("%H%M%S") #Old Depreciated - to be removed
+    time_str = datetime.now(timezone.utc).strftime("%H%M%S")
+
+
 
     # build GLL body and wrap with checksum
     body = f"GPGLL,{lat_part},{lat_dir},{lon_part},{lon_dir},{time_str},A"
@@ -521,7 +526,8 @@ def update_live_data(channel_name, channel_id, interpreted_value):
     """
     Thread-safe function to update live_data with the latest frame data.
     """
-    timestamp = datetime.utcnow().isoformat()
+    #timestamp = datetime.utcnow().isoformat() #Old Depreciated - to be removed
+    timestamp = datetime.now(timezone.utc).isoformat()
     with live_data_lock:  # Acquire lock to ensure thread safety
         live_data[channel_name] = {
             "channel_id": channel_id,
@@ -631,6 +637,8 @@ def read_input_source(input_source, is_file):
     return None
 
 
+from datetime import datetime, timezone, timedelta
+
 def process_frame_queue(frame_queue, udp_socket, udp_port):
     while not frame_queue.empty():
         try:
@@ -642,15 +650,35 @@ def process_frame_queue(frame_queue, udp_socket, udp_port):
             logger.debug(f"Processing decoded frame: {frame}")
             values = frame.get("values", {})
             for channel_name, channel_data in values.items():
-                if channel_data:
-                    channel_id = channel_data.get("channel_id", "??")
-                    interpreted_value = channel_data.get("interpreted", "N/A")
+                if not channel_data:
+                    continue
 
-                    # Update live data
-                    update_live_data(channel_name, channel_id, interpreted_value)
+                channel_id        = channel_data.get("channel_id", "??")
+                interpreted_value = channel_data.get("interpreted", "N/A")
 
-                    # Generate and broadcast NMEA sentence
-                    #message = trigger_nmea_sentence(channel_name, interpreted_value)
+                # --- peek at old entry
+                with live_data_lock:
+                    old_entry = live_data.get(channel_name)
+                    old_value = old_entry.get("interpreted_value") if old_entry else None
+                    old_ts_str = old_entry.get("timestamp")           if old_entry else None
+
+                # --- compute age of old value
+                age_exceeded = True
+                if old_ts_str:
+                    try:
+                        old_ts = datetime.fromisoformat(old_ts_str)
+                        age_exceeded = (datetime.now(timezone.utc) - old_ts) > timedelta(seconds=REBROADCAST_AGE)
+                    except ValueError:
+                        age_exceeded = True
+
+                # --- update to the new value (resets timestamp)
+                update_live_data(channel_name, channel_id, interpreted_value)
+
+                # --- log old vs new (logging module will add the timestamp)
+                logger.debug(f"{channel_name!r}: old={old_value!r}, new={interpreted_value!r}")
+
+                # --- broadcast if changed OR too old
+                if (interpreted_value != old_value) or age_exceeded:
                     message = trigger_nmea_sentence(channel_name)
                     if message:
                         try:
@@ -658,10 +686,45 @@ def process_frame_queue(frame_queue, udp_socket, udp_port):
                             logger.debug(f"Broadcasted message: {message.strip()}")
                         except socket.error as e:
                             logger.error(f"Failed to send message: {e}")
+                else:
+                    logger.debug(f"No rebroadcast for {channel_name!r}: value unchanged and < REBROADCAST_AGE")
+
         except queue.Empty:
             break
         except Exception as e:
             logger.error(f"Unexpected error while processing frame: {e}")
+
+# def process_frame_queue(frame_queue, udp_socket, udp_port):
+#     while not frame_queue.empty():
+#         try:
+#             frame = frame_queue.get_nowait()
+#             if not frame:
+#                 logger.warning("Received None frame from queue. Skipping.")
+#                 continue
+
+#             logger.debug(f"Processing decoded frame: {frame}")
+#             values = frame.get("values", {})
+#             for channel_name, channel_data in values.items():
+#                 if channel_data:
+#                     channel_id = channel_data.get("channel_id", "??")
+#                     interpreted_value = channel_data.get("interpreted", "N/A")
+
+#                     # Update live data
+#                     update_live_data(channel_name, channel_id, interpreted_value)
+
+#                     # Generate and broadcast NMEA sentence
+#                     #message = trigger_nmea_sentence(channel_name, interpreted_value)
+#                     message = trigger_nmea_sentence(channel_name)
+#                     if message:
+#                         try:
+#                             udp_socket.sendto(message.encode(), (BROADCAST_ADDRESS, udp_port))
+#                             logger.debug(f"Broadcasted message: {message.strip()}")
+#                         except socket.error as e:
+#                             logger.error(f"Failed to send message: {e}")
+#         except queue.Empty:
+#             break
+#         except Exception as e:
+#             logger.error(f"Unexpected error while processing frame: {e}")
 
 
 
