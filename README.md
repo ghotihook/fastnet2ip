@@ -42,7 +42,7 @@ I have been running on Rasperry Pi, a stock install is sufficient.
 
 ```~/python_environment/bin/python3 fastnet2ip.py --serial /dev/ttyUSB0 --udp-port 2002  --log-level ERROR```
 
-**Support NMEA messages**
+**Support NMEA messages broadcast via UDP**
 - VHW (Boatspeed)
 - DBT (Depth)
 - RSA (Rudder Angle)
@@ -63,7 +63,7 @@ I have been running on Rasperry Pi, a stock install is sufficient.
 	- raw_wind_angle (B&G transducer raw data)
 	- raw_boat_speed (B&G transducer raw data)
 
-**Console output**
+**Console output - testing only**
 ![Example console output](images/console_output.jpg "Fastnet System Overview")
 
 
