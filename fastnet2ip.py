@@ -823,7 +823,6 @@ def main():
             if new_data:
                 frame_buffer.add_to_buffer(new_data)
                 frame_buffer.get_complete_frames()
-                print("Contents:", list(frame_buffer.frame_queue.queue))
                 process_frame_queue(frame_buffer.frame_queue, udp_socket, args.udp_port)
 
             # Check if live data should be printed
