@@ -32,9 +32,6 @@ I have been running on Rasperry Pi, a stock install is sufficient.
 
 ```pip3 install pyfastnet```
 
-if using a Waveshare CAN HAT 
-
-I have found the USB dongle works out of the box.
 
 ## Running
 
@@ -50,22 +47,22 @@ I have found the USB dongle works out of the box.
 - VHW (Boatspeed)
 - DBT (Depth)
 - RSA (Rudder Angle)
-- XDR (Battery Voltage - Tagging = Main)
 - MWD (True Wind Direction)
-- MWD (True Wind Angle / Speed)
+- MWV (True Wind Angle / Speed)
 - MWV (Apparent Wind Angle / Speed)
 - MTW (Sea Temperature)
-- HDG (Heading)
+- HDM (Heading)
 - VTG (COG and SOG)
 - GLL (Lat/Lon)
 - Multiple XDR sentences including
 	- Tide Drift
 	- Tide Set
-	- Measured Wind Angle (Raw)
-	- Measured Wind Speed (Raw)
 	- Battery Voltage
 	- Heel
 	- Fore/Aft trim
+	- raw_wind_speed (B&G transducer raw data)
+	- raw_wind_angle (B&G transducer raw data)
+	- raw_boat_speed (B&G transducer raw data)
 
 **Console output**
 
