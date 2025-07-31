@@ -23,6 +23,7 @@ BYTE_SIZE = serial.EIGHTBITS
 STOP_BITS = serial.STOPBITS_TWO
 PARITY = serial.PARITY_ODD
 BROADCAST_ADDRESS = "255.255.255.255"
+READ_SIZE = 256 
 
 DEFAULT_UDP_PORT = 2002
 OUTPUT_MONITOR_TIMEOUT = 1
@@ -633,7 +634,7 @@ def read_input_source(input_source, is_file):
     else:
         rlist, _, _ = select.select([input_source], [], [], 1)
         if input_source in rlist:
-            return input_source.read(256)
+            return input_source.read(READ_SIZE)
     return None
 
 
@@ -822,7 +823,7 @@ def main():
             if new_data:
                 frame_buffer.add_to_buffer(new_data)
                 frame_buffer.get_complete_frames()
-
+                print("Contents:", list(frame_buffer.frame_queue.queue))
                 process_frame_queue(frame_buffer.frame_queue, udp_socket, args.udp_port)
 
             # Check if live data should be printed

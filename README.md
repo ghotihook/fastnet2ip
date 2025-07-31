@@ -11,8 +11,14 @@ This is the companion app to the library [pyfastnet](https://github.com/ghotihoo
 Fastnet uses two-wire differential transmission and I have had success using RS-485/CAN bus connections. The CAN Hat has the option to enable 120ohm teminations which I am using.
 
 These are known to work
-- [Waveshare RS485 CAN HAT](https://www.waveshare.com/wiki/RS485_CAN_HAT)
+- [M5Stack Core MP135](https://shop.m5stack.com/products/m5stack-coremp135-w-stm32mp135d?srsltid=AfmBOoqM3L0pVHeKU8TDykcHk937Fm5otebvPbT_TI66HM_STqBiw11j)
+
 - [DTECH USB RS422/RS485 USB dongle](https://www.amazon.com.au/DTECH-Converter-Adapter-Supports-Windows/dp/B076WVFXN8)
+	Works out of the box
+
+- [Waveshare RS485 CAN HAT](https://www.waveshare.com/wiki/RS485_CAN_HAT)
+	add this to /boot/firmware/config.txt 
+	```dtoverlay=mcp2515-can0,oscillator=12000000,interrupt=25,spimaxfrequency=2000000```
 
 Connections
 - **Fastnet White**: RS485 Data +
@@ -26,9 +32,7 @@ I have been running on Rasperry Pi, a stock install is sufficient.
 
 ```pip3 install pyfastnet```
 
-if using a Waveshare CAN HAT add this to /boot/firmware/config.txt
-
-```dtoverlay=mcp2515-can0,oscillator=12000000,interrupt=25,spimaxfrequency=2000000```
+if using a Waveshare CAN HAT 
 
 I have found the USB dongle works out of the box.
 
