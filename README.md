@@ -7,7 +7,6 @@ This is the companion app to the library [pyfastnet](https://github.com/ghotihoo
 
 
 ## Installation
-
 Fastnet uses two-wire differential transmission and I have had success using RS-485/CAN bus connections. The CAN Hat has the option to enable 120ohm teminations which I am using.
 
 These are known to work
@@ -65,12 +64,18 @@ I have been running on Rasperry Pi, a stock install is sufficient.
 	- raw_boat_speed (B&G transducer raw data)
 
 **Console output**
-
 ![Example console output](images/console_output.jpg "Fastnet System Overview")
 
 
-## Watchdog
-If being run at startup, the fastnet2ip_wd.sh can be used as a robust way to keep it running executed from /etc/rc.local
+## Startup
+Includes a 'fastnet2ip.service' file recommended for systemd architecture 
+```
+cp fastnet2ip.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable fastnet2ip
+systemctl start fastnet2ip
+```
+
 
 ## Approach
 This is the approximate approach
