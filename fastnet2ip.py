@@ -114,7 +114,6 @@ def process_xdr_battv():
     """
     # Pull the battery voltage (finite float or None)
     bv = get_live_data("Battery Volts")
-    print(bv)
     # Format to two decimals if present, else leave empty
     bv_str = f"{bv:.2f}" if bv is not None else ""
     # Build XDR payload: transducer type U (voltage), value, unit V, name BATTV
