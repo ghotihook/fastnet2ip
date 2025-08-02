@@ -204,7 +204,7 @@ def process_mtw():
     pulling the temperature via get_live_data().
     """
     # Pull sea temperature (finite float or None)
-    st = get_live_data("Sea Temperature")
+    st = get_live_data("Sea Temperature (°C)")
 
     # Format to one decimal if present, else leave blank
     temp_str = f"{st:.1f}" if st is not None else ""
