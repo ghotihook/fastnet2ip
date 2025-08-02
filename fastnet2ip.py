@@ -28,7 +28,7 @@ READ_SIZE = 256
 DEFAULT_UDP_PORT = 2002
 OUTPUT_MONITOR_TIMEOUT = 1
 
-REBROADCAST_AGE = 2 #if value is older then n seconds, re-send nmea message anyway
+REBROADCAST_AGE = 5 #if value is older then n seconds, re-send nmea message anyway
 frame_buffer = FrameBuffer()
 live_data = {}
 live_data_lock = threading.Lock()
@@ -216,6 +216,61 @@ def process_mtw():
     checksum = calculate_nmea_checksum(body)
     return f"${body}*{checksum}\n"
 
+
+def process_mda():
+    """
+    Generate NMEA MDA (Meteorological Composite) sentence,
+    with fixed field positions and only show units if value is present.
+    If value is missing, emit only a comma.
+    """
+    def val_unit(val, fmt, unit):
+        return f"{fmt.format(val)},{unit}," if val is not None else ",,"
+
+    # Get live data
+    bp_hpa      = get_live_data("Barometric Pressure")
+    air_temp    = get_live_data("Air Temperature (°C)")
+    water_temp  = get_live_data("Sea Temperature (°C)")
+
+    bp_inhg = bp_hpa * 0.0295299830714 if bp_hpa is not None else None
+    bp_bar  = bp_hpa / 1000 if bp_hpa is not None else None
+
+    body = (
+        "WIMDA,"
+        f"{val_unit(bp_inhg, '{:.4f}', 'I')}"
+        f"{val_unit(bp_bar, '{:.4f}', 'B')}"
+        f"{val_unit(air_temp, '{:.1f}', 'C')}"
+        f"{val_unit(water_temp, '{:.1f}', 'C')}"
+        ",,,"    # Rel. humidity, abs. humidity, dew point
+        ",,"     # Dew point (deg C, C)
+        ",,"     # Wind dir true, T
+        ",,"     # Wind dir mag, M
+        ",,"     # Wind speed knots, N
+        ",,"     # Wind speed m/s, M
+    )
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\r\n"
+
+
+
+def process_mta():
+    """
+    Generate NMEA MTW sentence for air temp
+    pulling the temperature via get_live_data().
+    """
+    # Pull air temperature (finite float or None)
+    st = get_live_data("Air Temperature (°C)")
+
+    # Format to one decimal if present, else leave blank
+    temp_str = f"{st:.1f}" if st is not None else ""
+
+    # Build MTA payload
+    body = f"IIMTA,{temp_str},C"
+
+    # Calculate checksum and return full sentence
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\n"
+
+
 def process_hdm():
     """
     Generate NMEA HDM sentence for magnetic heading,
@@ -352,6 +407,33 @@ def process_xdr_raw_wind_s():
     return f"${body}*{checksum}\n"
 
 
+def process_vdr():
+    """
+    Generate NMEA VDR sentence (Set and Drift) from live data.
+    "Tidal Set" is in degrees TRUE; "Tidal Drift" is in knots.
+    """
+    # Tidal Set = direction TRUE (degrees)
+    deg_true = None
+    # Tidal Set = direction MAG (degrees)
+    deg_magnetic = get_live_data("Tidal Set")
+    # Tidal Drift = speed of current (knots)
+    speed_knots = get_live_data("Tidal Drift")
+
+    # Use NMEA format: value,unit; if value is missing, just ","
+    def val_unit(val, fmt, unit):
+        return f"{fmt.format(val)},{unit}," if val is not None else ",,"
+
+    body = (
+        "IIVDR,"  # Or whatever talker ID you want
+        f"{val_unit(deg_true, '{:.1f}', 'T')}"
+        f"{val_unit(deg_magnetic, '{:.1f}', 'M')}"
+        f"{val_unit(speed_knots, '{:.2f}', 'N')}"
+    )
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\r\n"
+
+
+
 def process_xdr_drift():
     """
     Generate NMEA XDR sentence for tide drift speed,
@@ -457,7 +539,10 @@ trigger_functions = {
     "Apparent Wind Speed (Knots)": process_mwv_apparent,
     "Apparent Wind Angle": process_mwv_apparent,
     
-    "Sea Temperature (°C)": process_mtw,
+    "Air Temperature (°C)": process_mda,
+    "Sea Temperature (°C)": process_mda,
+    "Barometric Pressure": process_mda,
+
     "Heading": process_hdm,
   
     "Speed Over Ground": process_vtg,  
@@ -467,8 +552,10 @@ trigger_functions = {
     "LatLon":process_gll,
     "Apparent Wind Angle (Raw)":process_xdr_raw_wind_angle,
     "Apparent Wind Speed (Raw)":process_xdr_raw_wind_s,
-    "Tidal Drift":process_xdr_drift,
-    "Tidal Set":process_xdr_set,
+    #"Tidal Drift":process_xdr_drift,
+    #"Tidal Set":process_xdr_set,
+    "Tidal Drift":process_vdr,
+    "Tidal Set":process_vdr,
     "Boatspeed (Raw)":process_xdr_raw_bsp,
     "Heel Angle":process_xdr_roll,
     "Fore/Aft Trim":process_xdr_pitch
