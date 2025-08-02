@@ -375,7 +375,7 @@ def process_xdr_raw_wind_angle():
     pulling the raw angle via get_live_data().
     """
     # Pull the raw wind-angle measurement (finite float or None)
-    rwa = get_live_data("Measured Wind Angle Raw")
+    rwa = get_live_data("Apparent Wind Angle (Raw)")
 
     # Format to two decimals if present, else leave empty
     rwa_str = f"{rwa:.2f}" if rwa is not None else ""
@@ -388,13 +388,13 @@ def process_xdr_raw_wind_angle():
     return f"${body}*{checksum}\n"
 
 
-def process_xdr_raw_wind_s():
+def process_xdr_raw_wind_speed():
     """
     Generate NMEA XDR sentence for measured wind speed (raw),
     pulling the raw speed via get_live_data().
     """
     # Pull the raw wind-speed measurement (finite float or None)
-    rws = get_live_data("Measured Wind Speed Raw")
+    rws = get_live_data("Apparent Wind Speed (Raw)")
 
     # Format to two decimals if present, else leave empty
     rws_str = f"{rws:.2f}" if rws is not None else ""
@@ -476,7 +476,7 @@ def process_xdr_raw_bsp():
     pulling the raw value via get_live_data().
     """
     # Pull the raw BSP measurement (finite float or None)
-    raw = get_live_data("Raw BSP")
+    raw = get_live_data("Boatspeed (Raw)")
 
     # Format to two decimals if present, else leave empty
     raw_str = f"{raw:.2f}" if raw is not None else ""
@@ -551,9 +551,7 @@ trigger_functions = {
 
     "LatLon":process_gll,
     "Apparent Wind Angle (Raw)":process_xdr_raw_wind_angle,
-    "Apparent Wind Speed (Raw)":process_xdr_raw_wind_s,
-    #"Tidal Drift":process_xdr_drift,
-    #"Tidal Set":process_xdr_set,
+    "Apparent Wind Speed (Raw)":process_xdr_raw_wind_speed,
     "Tidal Drift":process_vdr,
     "Tidal Set":process_vdr,
     "Boatspeed (Raw)":process_xdr_raw_bsp,
