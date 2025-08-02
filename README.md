@@ -49,13 +49,12 @@ I have been running on Rasperry Pi, a stock install is sufficient.
 - MWD (True Wind Direction)
 - MWV (True Wind Angle / Speed)
 - MWV (Apparent Wind Angle / Speed)
-- MTW (Sea Temperature)
+- MDA (Air Temp, Sea Temp, Barometric pressure)
 - HDM (Heading)
 - VTG (COG and SOG)
+- VDR (Tide Set/Drift)
 - GLL (Lat/Lon)
 - Multiple XDR sentences including
-	- Tide Drift
-	- Tide Set
 	- Battery Voltage
 	- Heel
 	- Fore/Aft trim
