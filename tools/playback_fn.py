@@ -5,10 +5,10 @@ import sys
 import time
 
 # Configuration Constants
-SERIAL_PORT = "/dev/ttyAMA0"        # Replace with your serial port (e.g., COM3 on Windows)
+SERIAL_PORT = "/dev/ttySTM3"        # Replace with your serial port (e.g., COM3 on Windows)
 BAUDRATE = 28800                    # Fastnet baudrate
 TIMEOUT = 0.1                       # Serial timeout in seconds
-INPUT_FILE = "../example1_fastnet_data.txt"   # Input file name containing hex data
+INPUT_FILE = "fastnet_record.txt"   # Input file name containing hex data
 CHUNK_SIZE = 16  # Set the max bytes per write
 
 
@@ -30,7 +30,7 @@ def playback_file_to_serial(port=SERIAL_PORT, baudrate=BAUDRATE, timeout=TIMEOUT
             port=port,
             baudrate=baudrate,
             bytesize=serial.EIGHTBITS,
-            parity=serial.PARITY_EVEN,
+            parity=serial.PARITY_ODD,
             stopbits=serial.STOPBITS_TWO,
             timeout=timeout
         )

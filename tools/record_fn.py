@@ -5,7 +5,7 @@ import sys
 import time
 
 # Configuration Constants
-SERIAL_PORT = "/dev/ttyS0"        # Replace with your serial port (e.g., COM3 on Windows)
+SERIAL_PORT = "/dev/ttySTM3"        # Replace with your serial port (e.g., COM3 on Windows)
 BAUDRATE = 28800                    # Fastnet baudrate
 TIMEOUT = 0.1                       # Serial read timeout in seconds
 BUFFER_SIZE = 256                   # Number of bytes to read per serial read
@@ -19,8 +19,6 @@ def reset_serial_port_with_stty(port):
     except subprocess.CalledProcessError as e:
         print(f"[ERROR] Failed to reset serial port {port}: {e}")
 
-
-
 def listen_and_record(port=SERIAL_PORT, baudrate=BAUDRATE, timeout=TIMEOUT, output_file=OUTPUT_FILE):
     """
     Listens to the Fastnet serial port and records all incoming data to a text file.
@@ -32,7 +30,7 @@ def listen_and_record(port=SERIAL_PORT, baudrate=BAUDRATE, timeout=TIMEOUT, outp
             port=port,
             baudrate=baudrate,
             bytesize=serial.EIGHTBITS,
-            parity=serial.PARITY_EVEN,
+            parity=serial.PARITY_ODD,
             stopbits=serial.STOPBITS_TWO,
             timeout=timeout
         )
