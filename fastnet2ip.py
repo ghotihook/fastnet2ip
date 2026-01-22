@@ -252,23 +252,23 @@ def process_mda():
 
 
 
-def process_mta():
-    """
-    Generate NMEA MTW sentence for air temp
-    pulling the temperature via get_live_data().
-    """
-    # Pull air temperature (finite float or None)
-    st = get_live_data("Air Temperature (°C)")
-
-    # Format to one decimal if present, else leave blank
-    temp_str = f"{st:.1f}" if st is not None else ""
-
-    # Build MTA payload
-    body = f"IIMTA,{temp_str},C"
-
-    # Calculate checksum and return full sentence
-    checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\n"
+#def process_mta():
+#    """
+#    Generate NMEA MTW sentence for air temp
+#    pulling the temperature via get_live_data().
+#    """
+#    # Pull air temperature (finite float or None)
+#    st = get_live_data("Air Temperature (°C)")
+#
+#    # Format to one decimal if present, else leave blank
+#    temp_str = f"{st:.1f}" if st is not None else ""
+#
+#    # Build MTA payload
+#    body = f"IIMTA,{temp_str},C"
+#
+#    # Calculate checksum and return full sentence
+#    checksum = calculate_nmea_checksum(body)
+#    return f"${body}*{checksum}\n"
 
 
 def process_hdm():
