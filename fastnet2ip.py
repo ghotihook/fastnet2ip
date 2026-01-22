@@ -434,41 +434,41 @@ def process_vdr():
 
 
 
-def process_xdr_drift():
-    """
-    Generate NMEA XDR sentence for tide drift speed,
-    pulling the drift speed via get_live_data().
-    """
-    # Pull the drift speed (finite float or None)
-    drift = get_live_data("Tide Drift Speed")
+#def process_xdr_drift():
+#    """
+#    Generate NMEA XDR sentence for tide drift speed,
+#    pulling the drift speed via get_live_data().
+#    """
+#    # Pull the drift speed (finite float or None)
+#    drift = get_live_data("Tide Drift Speed")
+#
+#    # Format to two decimals if present, else leave empty
+#    drift_str = f"{drift:.2f}" if drift is not None else ""
+#
+#    # Build XDR payload: type N (speed), value, unit V, name DRIFT
+#    body = f"IIXDR,N,{drift_str},V,DRIFT"
+#
+#    # Calculate checksum and return full sentence
+#    checksum = calculate_nmea_checksum(body)
+#    return f"${body}*{checksum}\n"
 
-    # Format to two decimals if present, else leave empty
-    drift_str = f"{drift:.2f}" if drift is not None else ""
-
-    # Build XDR payload: type N (speed), value, unit V, name DRIFT
-    body = f"IIXDR,N,{drift_str},V,DRIFT"
-
-    # Calculate checksum and return full sentence
-    checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\n"
-
-def process_xdr_set():
-    """
-    Generate NMEA XDR sentence for tide set angle,
-    pulling the set angle via get_live_data().
-    """
-    # Pull the tide set angle (finite float or None)
-    ts = get_live_data("Tide Set Angle")
-
-    # Format to two decimals if present, else leave empty
-    ts_str = f"{ts:.2f}" if ts is not None else ""
-
-    # Build XDR payload: type A (angle), value, unit V, name SET
-    body = f"IIXDR,A,{ts_str},V,SET"
-
-    # Calculate checksum and return full sentence
-    checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\n"
+#def process_xdr_set():
+#    """
+#    Generate NMEA XDR sentence for tide set angle,
+#    pulling the set angle via get_live_data().
+#    """
+#    # Pull the tide set angle (finite float or None)
+#    ts = get_live_data("Tide Set Angle")
+#
+#    # Format to two decimals if present, else leave empty
+#    ts_str = f"{ts:.2f}" if ts is not None else ""
+#
+#    # Build XDR payload: type A (angle), value, unit V, name SET
+#    body = f"IIXDR,A,{ts_str},V,SET"
+#
+#    # Calculate checksum and return full sentence
+#    checksum = calculate_nmea_checksum(body)
+#    return f"${body}*{checksum}\n"
 
 def process_xdr_raw_bsp():
     """
