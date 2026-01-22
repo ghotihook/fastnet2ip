@@ -101,8 +101,8 @@ def process_rsa():
         ra_str = ""
         status = "V"
 
-    # Build RSA payload: <angle>,<status>,,<status>
-    body = f"IIRSA,{ra_str},{status},,{status}"
+    # Build RSA payload: <stb angle>,<stb status>,<port angle>,<port status>
+    body = f"IIRSA,{ra_str},{status},,"
     checksum = calculate_nmea_checksum(body)
     return f"${body}*{checksum}\n"
 
