@@ -198,23 +198,23 @@ def process_mwv_apparent():
     checksum = calculate_nmea_checksum(body)
     return f"${body}*{checksum}\n"
 
-def process_mtw():
-    """
-    Generate NMEA MTW sentence for sea temperature,
-    pulling the temperature via get_live_data().
-    """
-    # Pull sea temperature (finite float or None)
-    st = get_live_data("Sea Temperature (°C)")
-
-    # Format to one decimal if present, else leave blank
-    temp_str = f"{st:.1f}" if st is not None else ""
-
-    # Build MTW payload
-    body = f"IIMTW,{temp_str},C"
-
-    # Calculate checksum and return full sentence
-    checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\n"
+#def process_mtw():
+#    """
+#    Generate NMEA MTW sentence for sea temperature,
+#    pulling the temperature via get_live_data().
+#    """
+#    # Pull sea temperature (finite float or None)
+#    st = get_live_data("Sea Temperature (°C)")
+#
+#    # Format to one decimal if present, else leave blank
+#    temp_str = f"{st:.1f}" if st is not None else ""
+#
+#    # Build MTW payload
+#    body = f"IIMTW,{temp_str},C"
+#
+#    # Calculate checksum and return full sentence
+#    checksum = calculate_nmea_checksum(body)
+#    return f"${body}*{checksum}\n"
 
 
 def process_mda():
