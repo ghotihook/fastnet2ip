@@ -101,8 +101,8 @@ def process_rsa():
         ra_str = ""
         status = "V"
 
-    # Build RSA payload: <angle>,<status>,,<status>
-    body = f"IIRSA,{ra_str},{status},,{status}"
+    # Build RSA payload: <stb angle>,<stb status>,<port angle>,<port status>
+    body = f"IIRSA,{ra_str},{status},,"
     checksum = calculate_nmea_checksum(body)
     return f"${body}*{checksum}\n"
 
@@ -198,23 +198,23 @@ def process_mwv_apparent():
     checksum = calculate_nmea_checksum(body)
     return f"${body}*{checksum}\n"
 
-def process_mtw():
-    """
-    Generate NMEA MTW sentence for sea temperature,
-    pulling the temperature via get_live_data().
-    """
-    # Pull sea temperature (finite float or None)
-    st = get_live_data("Sea Temperature (°C)")
-
-    # Format to one decimal if present, else leave blank
-    temp_str = f"{st:.1f}" if st is not None else ""
-
-    # Build MTW payload
-    body = f"IIMTW,{temp_str},C"
-
-    # Calculate checksum and return full sentence
-    checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\n"
+#def process_mtw():
+#    """
+#    Generate NMEA MTW sentence for sea temperature,
+#    pulling the temperature via get_live_data().
+#    """
+#    # Pull sea temperature (finite float or None)
+#    st = get_live_data("Sea Temperature (°C)")
+#
+#    # Format to one decimal if present, else leave blank
+#    temp_str = f"{st:.1f}" if st is not None else ""
+#
+#    # Build MTW payload
+#    body = f"IIMTW,{temp_str},C"
+#
+#    # Calculate checksum and return full sentence
+#    checksum = calculate_nmea_checksum(body)
+#    return f"${body}*{checksum}\n"
 
 
 def process_mda():
@@ -252,23 +252,23 @@ def process_mda():
 
 
 
-def process_mta():
-    """
-    Generate NMEA MTW sentence for air temp
-    pulling the temperature via get_live_data().
-    """
-    # Pull air temperature (finite float or None)
-    st = get_live_data("Air Temperature (°C)")
-
-    # Format to one decimal if present, else leave blank
-    temp_str = f"{st:.1f}" if st is not None else ""
-
-    # Build MTA payload
-    body = f"IIMTA,{temp_str},C"
-
-    # Calculate checksum and return full sentence
-    checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\n"
+#def process_mta():
+#    """
+#    Generate NMEA MTW sentence for air temp
+#    pulling the temperature via get_live_data().
+#    """
+#    # Pull air temperature (finite float or None)
+#    st = get_live_data("Air Temperature (°C)")
+#
+#    # Format to one decimal if present, else leave blank
+#    temp_str = f"{st:.1f}" if st is not None else ""
+#
+#    # Build MTA payload
+#    body = f"IIMTA,{temp_str},C"
+#
+#    # Calculate checksum and return full sentence
+#    checksum = calculate_nmea_checksum(body)
+#    return f"${body}*{checksum}\n"
 
 
 def process_hdm():
@@ -434,41 +434,41 @@ def process_vdr():
 
 
 
-def process_xdr_drift():
-    """
-    Generate NMEA XDR sentence for tide drift speed,
-    pulling the drift speed via get_live_data().
-    """
-    # Pull the drift speed (finite float or None)
-    drift = get_live_data("Tide Drift Speed")
+#def process_xdr_drift():
+#    """
+#    Generate NMEA XDR sentence for tide drift speed,
+#    pulling the drift speed via get_live_data().
+#    """
+#    # Pull the drift speed (finite float or None)
+#    drift = get_live_data("Tide Drift Speed")
+#
+#    # Format to two decimals if present, else leave empty
+#    drift_str = f"{drift:.2f}" if drift is not None else ""
+#
+#    # Build XDR payload: type N (speed), value, unit V, name DRIFT
+#    body = f"IIXDR,N,{drift_str},V,DRIFT"
+#
+#    # Calculate checksum and return full sentence
+#    checksum = calculate_nmea_checksum(body)
+#    return f"${body}*{checksum}\n"
 
-    # Format to two decimals if present, else leave empty
-    drift_str = f"{drift:.2f}" if drift is not None else ""
-
-    # Build XDR payload: type N (speed), value, unit V, name DRIFT
-    body = f"IIXDR,N,{drift_str},V,DRIFT"
-
-    # Calculate checksum and return full sentence
-    checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\n"
-
-def process_xdr_set():
-    """
-    Generate NMEA XDR sentence for tide set angle,
-    pulling the set angle via get_live_data().
-    """
-    # Pull the tide set angle (finite float or None)
-    ts = get_live_data("Tide Set Angle")
-
-    # Format to two decimals if present, else leave empty
-    ts_str = f"{ts:.2f}" if ts is not None else ""
-
-    # Build XDR payload: type A (angle), value, unit V, name SET
-    body = f"IIXDR,A,{ts_str},V,SET"
-
-    # Calculate checksum and return full sentence
-    checksum = calculate_nmea_checksum(body)
-    return f"${body}*{checksum}\n"
+#def process_xdr_set():
+#    """
+#    Generate NMEA XDR sentence for tide set angle,
+#    pulling the set angle via get_live_data().
+#    """
+#    # Pull the tide set angle (finite float or None)
+#    ts = get_live_data("Tide Set Angle")
+#
+#    # Format to two decimals if present, else leave empty
+#    ts_str = f"{ts:.2f}" if ts is not None else ""
+#
+#    # Build XDR payload: type A (angle), value, unit V, name SET
+#    body = f"IIXDR,A,{ts_str},V,SET"
+#
+#    # Calculate checksum and return full sentence
+#    checksum = calculate_nmea_checksum(body)
+#    return f"${body}*{checksum}\n"
 
 def process_xdr_raw_bsp():
     """
