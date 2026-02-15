@@ -68,7 +68,10 @@ I have been running on Rasperry Pi, a stock install is sufficient.
 
 
 ## Startup
-Includes a 'fastnet2ip.service' file recommended for systemd architecture 
+Includes a `fastnet2ip.service` file recommended for systemd architecture.
+
+**Important:** If your serial port is not `/dev/ttySTM3`, update both the `BindsTo=` and `After=` lines in the service file to match your device (e.g. `dev-ttyUSB0.device` for `/dev/ttyUSB0`), as well as the `ExecStart` path.
+
 ```
 cp fastnet2ip.service /etc/systemd/system/
 systemctl daemon-reload
