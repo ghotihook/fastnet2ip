@@ -334,6 +334,18 @@ def process_vtg():
     return f"${body}*{checksum}\n"
 
 
+def process_vpw():
+    """
+    Generate NMEA VPW sentence for velocity made good (parallel to wind).
+    """
+    vmg = get_live_data("Velocity Made Good (Knots)")
+    vmg_kn_str = f"{vmg:.1f}" if vmg is not None else ""
+    vmg_ms_str = f"{vmg * 0.514444:.1f}" if vmg is not None else ""
+    body = f"IIVPW,{vmg_kn_str},N,{vmg_ms_str},M"
+    checksum = calculate_nmea_checksum(body)
+    return f"${body}*{checksum}\n"
+
+
 def process_gll():
     """
     Generate NMEA GLL sentence for geographic position,
@@ -556,7 +568,8 @@ trigger_functions = {
     "Tidal Set":process_vdr,
     "Boatspeed (Raw)":process_xdr_raw_bsp,
     "Heel Angle":process_xdr_roll,
-    "Fore/Aft Trim":process_xdr_pitch
+    "Fore/Aft Trim":process_xdr_pitch,
+    "Velocity Made Good (Knots)":process_vpw
 }
 
 

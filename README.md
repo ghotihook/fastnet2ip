@@ -52,6 +52,7 @@ I have been running on Rasperry Pi, a stock install is sufficient.
 - MDA (Air Temp, Sea Temp, Barometric pressure)
 - HDM (Heading)
 - VTG (COG and SOG)
+- VPW (Velocity Made Good)
 - VDR (Tide Set/Drift)
 - GLL (Lat/Lon)
 - Multiple XDR sentences including
