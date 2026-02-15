@@ -34,9 +34,9 @@ I have been running on Rasperry Pi, a stock install is sufficient.
 
 ## Running
 
-**Virtual mode - txt file input**
+**Simulation mode - txt file input**
 
-```~/python_environment/bin/python3 fastnet2ip.py --file example2_fastnet_data.txt --udp-port 2002 --log-level ERROR --live-data```
+```python3 fastnet2ip.py --file test_files/example1_fastnet_data.txt --udp-port 2002 --log-level ERROR --live-data```
 
 **Real mode - serial port input**
 
