@@ -4,27 +4,46 @@
 #
 # python3 fastnet2ip.py --file test_files/example1_fastnet_data.txt --udp-port 2002 --log-level ERROR --live-data
 #
+# sudo cp fastnet2ip.service /etc/systemd/system/fastnet2ip.service 
 # systemctl status fastnet2ip
+# systemctl cat fastnet2ip 
 # systemctl start fastnet2ip  #or stop
-# systemctl reload fastnet2ip
 # systemctl enable fastnet2ip #or disable
+# systemctl daemon-reload #when .service file is updated
+# systemctl restart fastnet2ip
+# 
 #
 # if anything fails we want to aggressively restart
 
 [Unit]
 Description=fastnet2ip Service
-After=network-online.target
+After=network-online.target dev-ttySTM3.device
 Wants=network-online.target
+####################### CHANGE THIS IF PORT CHANGES
+BindsTo=dev-ttySTM3.device               
 
 [Service]
+Type=simple
+User=root
+WorkingDirectory=/home/alex060/fastnet2ip
 ExecStart=/home/alex060/python_environment/bin/python3 /home/alex060/fastnet2ip/fastnet2ip.py --serial /dev/ttySTM3 --udp-port 2002 --log-level ERROR
 Restart=always
-RestartSec=2
-MemoryMax=120M
-StartLimitInterval=0
-User=root
-WorkingDirectory=/home/alex060
+RestartSec=3
+StartLimitIntervalSec=0
+
+# === RESOURCE LIMITS ===
+OOMScoreAdjust=-500
+OOMPolicy=continue
+MemoryMax=128M
+MemoryHigh=96M
+CPUAccounting=true
+
+# === LOGGING ===
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fastnet2ip
 Environment=PYTHONUNBUFFERED=1
+
 
 [Install]
 WantedBy=multi-user.target
