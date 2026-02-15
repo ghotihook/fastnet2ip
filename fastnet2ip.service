@@ -1,19 +1,13 @@
 # service script for systemd
 #
-# ExecStart=/home/alex060/python_environment/bin/python3 /home/alex060/fastnet2ip/fastnet2ip.py --file /home/alex060/fastnet2ip/test_files/example1_fastnet_data.txt --udp-port 2002 --log-level ERROR --live-data
-#
-# python3 fastnet2ip.py --file test_files/example1_fastnet_data.txt --udp-port 2002 --log-level ERROR --live-data
-#
-# sudo cp fastnet2ip.service /etc/systemd/system/fastnet2ip.service 
-# systemctl status fastnet2ip
-# systemctl cat fastnet2ip 
-# systemctl start fastnet2ip  #or stop
-# systemctl enable fastnet2ip #or disable
-# systemctl daemon-reload #when .service file is updated
-# systemctl restart fastnet2ip
 # 
+# sudo cp fastnet2ip.service /etc/systemd/system/fastnet2ip.service 
+# systemctl status|cat fastnet2ip
+# systemctl start|stop|restart fastnet2ip
+# systemctl enable|disable fastnet2ip
+# systemctl daemon-reload  (after editing this file)
 #
-# if anything fails we want to aggressively restart
+#
 
 [Unit]
 Description=fastnet2ip Service
