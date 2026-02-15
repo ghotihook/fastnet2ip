@@ -5,9 +5,9 @@
 # python3 fastnet2ip.py --file test_files/example1_fastnet_data.txt --udp-port 2002 --log-level ERROR --live-data
 #
 # systemctl status fastnet2ip
-# systemctl start fastnet2ip
-# systemctl stop fastnet2ip
+# systemctl start fastnet2ip  #or stop
 # systemctl reload fastnet2ip
+# systemctl enable fastnet2ip #or disable
 #
 # if anything fails we want to aggressively restart
 
