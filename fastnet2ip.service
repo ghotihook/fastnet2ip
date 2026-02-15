@@ -20,7 +20,10 @@ Description=fastnet2ip Service
 After=network-online.target dev-ttySTM3.device
 Wants=network-online.target
 ####################### CHANGE THIS IF PORT CHANGES
-BindsTo=dev-ttySTM3.device               
+BindsTo=dev-ttySTM3.device
+StartLimitIntervalSec=300
+StartLimitBurst=5
+StartLimitAction=reboot
 
 [Service]
 Type=simple
@@ -28,15 +31,15 @@ User=root
 WorkingDirectory=/home/alex060/fastnet2ip
 ExecStart=/home/alex060/python_environment/bin/python3 /home/alex060/fastnet2ip/fastnet2ip.py --serial /dev/ttySTM3 --udp-port 2002 --log-level ERROR
 Restart=always
-RestartSec=3
-StartLimitIntervalSec=0
+RestartSec=10
 
 # === RESOURCE LIMITS ===
-OOMScoreAdjust=-500
+OOMScoreAdjust=-700
 OOMPolicy=continue
 MemoryMax=128M
 MemoryHigh=96M
-CPUAccounting=true
+TimeoutStopSec=30
+
 
 # === LOGGING ===
 StandardOutput=journal
