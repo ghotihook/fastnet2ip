@@ -1,6 +1,13 @@
 # service script for systemd
 #
-# ExecStart=/home/alex060/python_environment/bin/python3 /home/alex060/fastnet2ip/fastnet2ip.py --file example1_fastnet_data.txt --udp-port 2002 --log-level ERROR --live-data
+# ExecStart=/home/alex060/python_environment/bin/python3 /home/alex060/fastnet2ip/fastnet2ip.py --file /home/alex060/fastnet2ip/test_files/example1_fastnet_data.txt --udp-port 2002 --log-level ERROR --live-data
+#
+# python3 fastnet2ip.py --file test_files/example1_fastnet_data.txt --udp-port 2002 --log-level ERROR --live-data
+#
+# systemctl status fastnet2ip
+# systemctl start fastnet2ip
+# systemctl stop fastnet2ip
+# systemctl reload fastnet2ip
 #
 # if anything fails we want to aggressively restart
 
