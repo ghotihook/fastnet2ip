@@ -23,7 +23,7 @@ StartLimitAction=reboot
 Type=simple
 User=root
 WorkingDirectory=/home/alex060/fastnet2ip
-ExecStart=/home/alex060/python_environment/bin/python3 /home/alex060/fastnet2ip/fastnet2ip.py --serial /dev/ttySTM3 --udp-port 2002 --log-level ERROR
+ExecStart=/home/alex060/python_environment/bin/python3 /home/alex060/fastnet2ip/fastnet2ip.py --serial /dev/ttySTM3 --udp-port 2002 --log-level INFO
 Restart=always
 RestartSec=10
 
