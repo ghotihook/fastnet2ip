@@ -679,7 +679,7 @@ def trigger_nmea_sentence(channel_name):
     """
     trigger_function = trigger_functions.get(channel_name)
     if not trigger_function:
-        logger.warning(f"No trigger function defined for channel: {channel_name}. Skipping.")
+        logger.debug(f"No trigger function defined for channel: {channel_name}. Skipping.")
         return None
 
     try:
@@ -687,7 +687,7 @@ def trigger_nmea_sentence(channel_name):
         # call with no arguments
         message = trigger_function()
         if not message:
-            logger.warning(f"Trigger function for {channel_name} returned no message.")
+            logger.debug(f"Trigger function for {channel_name} returned no message.")
         return message
 
     except Exception as e:
@@ -743,7 +743,7 @@ def process_frame_queue(frame_queue, udp_socket, udp_port):
         try:
             frame = frame_queue.get_nowait()
             if not frame:
-                logger.warning("Received None frame from queue. Skipping.")
+                logger.debug("Received None frame from queue. Skipping.")
                 continue
 
             logger.debug(f"Processing decoded frame: {frame}")
