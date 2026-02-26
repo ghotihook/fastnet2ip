@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
+import argparse
 import subprocess
 import serial
 import sys
 import time
 
 # Configuration Constants
-SERIAL_PORT = "/dev/ttyUSB0"        # Replace with your serial port (e.g., COM3 on Windows)
+SERIAL_PORT = "/dev/ttySTM0"        # Default serial port
 BAUDRATE = 28800                    # Fastnet baudrate
 TIMEOUT = 0.1                       # Serial read timeout in seconds
 BUFFER_SIZE = 256                   # Number of bytes to read per serial read
@@ -75,5 +76,10 @@ def listen_and_record(port=SERIAL_PORT, baudrate=BAUDRATE, timeout=TIMEOUT, outp
             print("[INFO] Serial port closed.")
 
 if __name__ == "__main__":
-    reset_serial_port_with_stty(SERIAL_PORT)
-    listen_and_record()
+    parser = argparse.ArgumentParser(description="Record Fastnet data from serial port to file.")
+    parser.add_argument("--port", default=SERIAL_PORT, help=f"Serial port (default: {SERIAL_PORT})")
+    parser.add_argument("--baud", type=int, default=BAUDRATE, help=f"Baud rate (default: {BAUDRATE})")
+    args = parser.parse_args()
+
+    reset_serial_port_with_stty(args.port)
+    listen_and_record(port=args.port, baudrate=args.baud)

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
+import argparse
 import subprocess
 import serial
 import sys
 import time
 
 # Configuration Constants
-SERIAL_PORT = "/dev/ttyUSB0"        # Replace with your serial port (e.g., COM3 on Windows)
+SERIAL_PORT = "/dev/ttySTM0"        # Default serial port
 BAUDRATE = 28800                    # Fastnet baudrate
 TIMEOUT = 0.1                       # Serial timeout in seconds
 INPUT_FILE = "fastnet_record.txt"   # Input file name containing hex data
@@ -79,5 +80,10 @@ def playback_file_to_serial(port=SERIAL_PORT, baudrate=BAUDRATE, timeout=TIMEOUT
             print("[INFO] Serial port closed.")
 
 if __name__ == "__main__":
-    reset_serial_port_with_stty(SERIAL_PORT)
-    playback_file_to_serial()
+    parser = argparse.ArgumentParser(description="Playback Fastnet data from file to serial port.")
+    parser.add_argument("--port", default=SERIAL_PORT, help=f"Serial port (default: {SERIAL_PORT})")
+    parser.add_argument("--baud", type=int, default=BAUDRATE, help=f"Baud rate (default: {BAUDRATE})")
+    args = parser.parse_args()
+
+    reset_serial_port_with_stty(args.port)
+    playback_file_to_serial(port=args.port, baudrate=args.baud)
