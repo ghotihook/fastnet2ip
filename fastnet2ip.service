@@ -11,10 +11,10 @@
 
 [Unit]
 Description=fastnet2ip Service
-After=network-online.target dev-ttySTM3.device
+After=network-online.target dev-ttyUSB0.device
 Wants=network-online.target
 ####################### CHANGE THIS IF PORT CHANGES
-BindsTo=dev-ttySTM3.device
+BindsTo=dev-ttyUSB0.device
 StartLimitIntervalSec=300
 StartLimitBurst=5
 StartLimitAction=reboot
@@ -23,7 +23,7 @@ StartLimitAction=reboot
 Type=simple
 User=root
 WorkingDirectory=/home/alex060/fastnet2ip
-ExecStart=/home/alex060/python_environment/bin/python3 /home/alex060/fastnet2ip/fastnet2ip.py --serial /dev/ttySTM3 --udp-port 2002 --log-level INFO
+ExecStart=/home/alex060/python_environment/bin/python3 /home/alex060/fastnet2ip/fastnet2ip.py --serial /dev/ttyUSB0 --udp-port 2002 --log-level INFO
 Restart=always
 RestartSec=10
 
