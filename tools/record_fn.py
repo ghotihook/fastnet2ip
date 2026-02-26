@@ -6,12 +6,12 @@ import sys
 import time
 
 # Configuration Constants
-SERIAL_PORT = "/dev/ttySTM0"        # Default serial port
+SERIAL_PORT = "/dev/ttyAMA0"        # Default serial port
 BAUDRATE = 28800                    # Fastnet baudrate
 BYTE_SIZE = serial.EIGHTBITS
 STOP_BITS = serial.STOPBITS_TWO
 PARITY = serial.PARITY_ODD
-TIMEOUT = 0.1                       # Serial read timeout in seconds
+TIMEOUT = 0.01                       # Serial read timeout in seconds
 BUFFER_SIZE = 256                   # Number of bytes to read per serial read
 OUTPUT_FILE = "fastnet_record.txt"  # Output file name
 
