@@ -5,7 +5,7 @@ import sys
 import time
 
 # Configuration Constants
-SERIAL_PORT = "/dev/ttySTM3"        # Replace with your serial port (e.g., COM3 on Windows)
+SERIAL_PORT = "/dev/tty.usbserial-B0048X7D"        # Replace with your serial port (e.g., COM3 on Windows)
 BAUDRATE = 28800                    # Fastnet baudrate
 TIMEOUT = 0.1                       # Serial timeout in seconds
 INPUT_FILE = "fastnet_record.txt"   # Input file name containing hex data
