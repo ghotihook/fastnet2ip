@@ -8,6 +8,9 @@ import time
 # Configuration Constants
 SERIAL_PORT = "/dev/ttySTM0"        # Default serial port
 BAUDRATE = 28800                    # Fastnet baudrate
+BYTE_SIZE = serial.EIGHTBITS
+STOP_BITS = serial.STOPBITS_TWO
+PARITY = serial.PARITY_ODD
 TIMEOUT = 0.1                       # Serial timeout in seconds
 INPUT_FILE = "fastnet_record.txt"   # Input file name containing hex data
 CHUNK_SIZE = 16  # Set the max bytes per write
@@ -30,9 +33,9 @@ def playback_file_to_serial(port=SERIAL_PORT, baudrate=BAUDRATE, timeout=TIMEOUT
         ser = serial.Serial(
             port=port,
             baudrate=baudrate,
-            bytesize=serial.EIGHTBITS,
-            parity=serial.PARITY_ODD,
-            stopbits=serial.STOPBITS_TWO,
+            bytesize=BYTE_SIZE,
+            parity=PARITY,
+            stopbits=STOP_BITS,
             timeout=timeout
         )
         print(f"[INFO] Serial port {port} opened successfully.")
