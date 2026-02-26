@@ -3,7 +3,6 @@ import argparse
 import subprocess
 import serial
 import sys
-import time
 
 # Configuration Constants
 SERIAL_PORT = "/dev/ttyAMA0"        # Default serial port
@@ -13,7 +12,7 @@ STOP_BITS = serial.STOPBITS_TWO
 PARITY = serial.PARITY_ODD
 TIMEOUT = 0.01                       # Serial timeout in seconds
 INPUT_FILE = "fastnet_record.txt"   # Input file name containing hex data
-CHUNK_SIZE = 16  # Set the max bytes per write
+CHUNK_SIZE = 256  # Set the max bytes per write
 
 
 # Reset Serial Port
@@ -59,9 +58,6 @@ def playback_file_to_serial(port=SERIAL_PORT, baudrate=BAUDRATE, timeout=TIMEOUT
                             # Update and display the total bytes sent
                             total_bytes += len(chunk)
                             print(f"\r[DEBUG] Total bytes sent: {total_bytes}", end='', flush=True)
-
-                            # Add a short delay to simulate real-time transmission
-                            time.sleep(0.2)  # Adjust as needed
 
                 except ValueError as e:
                     print(f"\n[ERROR] Invalid hex data in file: {e}")
