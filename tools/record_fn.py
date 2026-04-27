@@ -82,7 +82,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Record Fastnet data from serial port to file.")
     parser.add_argument("--port", default=SERIAL_PORT, help=f"Serial port (default: {SERIAL_PORT})")
     parser.add_argument("--baud", type=int, default=BAUDRATE, help=f"Baud rate (default: {BAUDRATE})")
+    parser.add_argument("--output", default=OUTPUT_FILE, dest="output_file", help=f"Output file to record hex data to (default: {OUTPUT_FILE})")
     args = parser.parse_args()
 
     reset_serial_port_with_stty(args.port)
-    listen_and_record(port=args.port, baudrate=args.baud)
+    listen_and_record(port=args.port, baudrate=args.baud, output_file=args.output_file)

@@ -82,7 +82,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Playback Fastnet data from file to serial port.")
     parser.add_argument("--port", default=SERIAL_PORT, help=f"Serial port (default: {SERIAL_PORT})")
     parser.add_argument("--baud", type=int, default=BAUDRATE, help=f"Baud rate (default: {BAUDRATE})")
+    parser.add_argument("--input", default=INPUT_FILE, dest="input_file", help=f"Input file containing hex data (default: {INPUT_FILE})")
     args = parser.parse_args()
 
     reset_serial_port_with_stty(args.port)
-    playback_file_to_serial(port=args.port, baudrate=args.baud)
+    playback_file_to_serial(port=args.port, baudrate=args.baud, input_file=args.input_file)

@@ -145,8 +145,8 @@ def process_mwd():
         tws_ms_str = ""
 
     # --- Build MWD payload
-    # Format: WI MWD ,,,{TWD},M,{TWS},N,{TWS_m/s},M
-    body = f"WIMWD,,,{twd_str},M,{tws_str},N,{tws_ms_str},M"
+    # Format: II MWD ,,,{TWD},M,{TWS},N,{TWS_m/s},M
+    body = f"IIMWD,,,{twd_str},M,{tws_str},N,{tws_ms_str},M"
 
     # --- Checksum and sentence
     checksum = calculate_nmea_checksum(body)
@@ -235,7 +235,7 @@ def process_mda():
     bp_bar  = bp_hpa / 1000 if bp_hpa is not None else None
 
     body = (
-        "WIMDA,"
+        "IIMDA,"
         f"{val_unit(bp_inhg, '{:.4f}', 'I')}"
         f"{val_unit(bp_bar, '{:.4f}', 'B')}"
         f"{val_unit(air_temp, '{:.1f}', 'C')}"
