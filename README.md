@@ -29,7 +29,7 @@ Connections
 
 I have been running on Rasperry Pi, a stock install is sufficient.
 
-```pip3 install pyfastnet```
+```pip3 install "pyfastnet>=2.0.1"```
 
 
 ## Running

@@ -752,8 +752,9 @@ def process_frame_queue(frame_queue, udp_socket, udp_port):
                 if not channel_data:
                     continue
 
-                channel_id        = channel_data.get("channel_id", "??")
-                interpreted_value = channel_data.get("interpreted", "N/A")
+                channel_id = channel_data.get("channel_id", "??")
+                value      = channel_data.get("value")
+                interpreted_value = value if value is not None else channel_data.get("display_text", "N/A")
 
                 # --- peek at old entry
                 with live_data_lock:
