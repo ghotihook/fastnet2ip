@@ -376,7 +376,7 @@ def process_gll():
 
 
     # build GLL body and wrap with checksum
-    body = f"GPGLL,{lat_part},{lat_dir},{lon_part},{lon_dir},{time_str},A"
+    body = f"IIGLL,{lat_part},{lat_dir},{lon_part},{lon_dir},{time_str},A"
     checksum = calculate_nmea_checksum(body)
     return f"${body}*{checksum}\n"
 
