@@ -48,7 +48,7 @@ Fastnet uses two-wire differential transmission. RS-485 adapters work well; the 
 Tested on Raspberry Pi with a stock OS install.
 
 ```bash
-pip3 install "pyfastnet>=2.0.1"
+pip3 install "pyfastnet>=2.0.13"
 ```
 
 Or clone this repo and install dependencies:
@@ -89,19 +89,29 @@ NMEA sentences are broadcast to `255.255.255.255` on the specified UDP port.
 
 | Sentence | Content |
 |---|---|
-| VHW | Boatspeed, magnetic heading |
+| VHW | Boatspeed; heading in True or Magnetic field per instrument layout |
 | DBT | Depth below transducer |
 | RSA | Rudder angle |
-| HDM | Magnetic heading |
-| MWD | True wind direction and speed |
+| HDM | Magnetic heading (only emitted when instrument layout confirms magnetic reference) |
+| MWD | True wind direction and speed; direction in True or Magnetic field per instrument layout |
 | MWV | True wind angle/speed (ref T) |
 | MWV | Apparent wind angle/speed (ref R) |
 | MDA | Air temp, sea temp, barometric pressure |
 | VTG | COG and SOG |
-| VPW | Velocity made good |
-| VDR | Tidal set and drift |
+| VPW | Velocity made good (positive = upwind, negative = downwind) |
+| VDR | Tidal set and drift; set direction in True or Magnetic field per instrument layout |
 | GLL | Latitude/Longitude |
-| XDR | Battery voltage, heel, fore/aft trim, raw wind speed, raw wind angle, raw boatspeed |
+
+XDR transducers:
+
+| XDR name | Type | Unit | Content |
+|---|---|---|---|
+| `BATTV` | U (voltage) | V | Battery voltage |
+| `ROLL` | A (angular) | D (degrees) | Heel angle |
+| `PITCH` | A (angular) | D (degrees) | Fore/aft trim |
+| `RAW_WIND_A` | A (angular) | V (raw) | Apparent wind angle raw sensor value |
+| `RAW_WIND_S` | N (generic) | V (raw) | Apparent wind speed raw sensor value |
+| `RAW_BSP` | N (generic) | V (raw) | Boatspeed raw sensor value |
 
 **Console output — `--live-data` flag**
 
@@ -167,7 +177,7 @@ Serial port / hex file
   Decoded frame queue            ← structured dicts: channel name + interpreted value
         │
         ▼
-  Live data store                ← latest value + timestamp per channel
+  Live data store                ← latest value, layout, and timestamp per channel
         │
         ▼
   NMEA sentence builder          ← one function per sentence type
