@@ -57,13 +57,12 @@ def get_live_layout(name):
 
 
 def update_live_data(channel_name, channel_id, interpreted_value, layout=None):
-    timestamp = datetime.now(timezone.utc).isoformat()
     with live_data_lock:
         live_data[channel_name] = {
             "channel_id": channel_id,
             "interpreted_value": interpreted_value,
             "layout": layout,
-            "timestamp": timestamp,
+            "timestamp": datetime.now(timezone.utc),
         }
 
 
@@ -406,18 +405,21 @@ def trigger_nmea_sentence(channel_name):
 
 def print_live_data(frame_buffer):
     print("\033c", end="")
-    header = f"{'Channel Name':<30} {'Channel ID':<12} {'Value':<25} {'Timestamp':<30}"
-    print(header)
-    print("-" * len(header))
-    for channel_name, data in sorted(live_data.items()):
-        channel_id = str(data.get("channel_id", "??"))
-        value = str(data.get("interpreted_value", "N/A"))
-        timestamp = str(data.get("timestamp", "N/A"))
-        channel_name = str(channel_name) if channel_name else "Unknown"
-        row = f"{channel_name:<30} {channel_id:<12} {value:<25} {timestamp:<30}"
+    now = datetime.now(timezone.utc)
+    hdr = f"{'Channel':<35} {'ID':<10} {'Value':<20} {'Layout':<12} {'Age(s)':<10}"
+    print(hdr)
+    print("-" * len(hdr))
+    for name, data in sorted(live_data.items()):
+        ts = data.get("timestamp")
+        age = f"{(now - ts).total_seconds():.1f}" if ts else ""
+        row = (
+            f"{str(name):<35} {str(data.get('channel_id', '')):<10} "
+            f"{str(data.get('interpreted_value', '')):<20} "
+            f"{str(data.get('layout', '')):<12} "
+            f"{age:<10}"
+        )
         print(row)
-    print("Buffer Size:", frame_buffer.get_buffer_size())
-    print("\n")
+    print(f"Buffer: {frame_buffer.get_buffer_size()}\n")
 
 
 def read_input_source(input_source, is_file):
@@ -461,11 +463,7 @@ def process_frame_queue(frame_queue, udp_socket, udp_port):
 
                 age_exceeded = True
                 if old_ts_str:
-                    try:
-                        old_ts = datetime.fromisoformat(old_ts_str)
-                        age_exceeded = (datetime.now(timezone.utc) - old_ts) > timedelta(seconds=REBROADCAST_AGE)
-                    except ValueError:
-                        age_exceeded = True
+                    age_exceeded = (datetime.now(timezone.utc) - old_ts_str) > timedelta(seconds=REBROADCAST_AGE)
 
                 update_live_data(channel_name, channel_id, interpreted_value, layout)
                 logger.debug(f"{channel_name!r}: old={old_value!r}, new={interpreted_value!r}")
