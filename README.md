@@ -89,17 +89,17 @@ NMEA sentences are broadcast to `255.255.255.255` on the specified UDP port.
 
 | Sentence | Content |
 |---|---|
-| VHW | Boatspeed, magnetic heading |
+| VHW | Boatspeed; heading in True or Magnetic field per instrument layout |
 | DBT | Depth below transducer |
 | RSA | Rudder angle |
-| HDM | Magnetic heading |
-| MWD | True wind direction and speed |
+| HDM | Magnetic heading (only emitted when instrument layout confirms magnetic reference) |
+| MWD | True wind direction and speed; direction in True or Magnetic field per instrument layout |
 | MWV | True wind angle/speed (ref T) |
 | MWV | Apparent wind angle/speed (ref R) |
 | MDA | Air temp, sea temp, barometric pressure |
 | VTG | COG and SOG |
-| VPW | Velocity made good |
-| VDR | Tidal set and drift |
+| VPW | Velocity made good (positive = upwind, negative = downwind) |
+| VDR | Tidal set and drift; set direction in True or Magnetic field per instrument layout |
 | GLL | Latitude/Longitude |
 | XDR | Battery voltage, heel, fore/aft trim, raw wind speed, raw wind angle, raw boatspeed |
 
@@ -167,7 +167,7 @@ Serial port / hex file
   Decoded frame queue            ← structured dicts: channel name + interpreted value
         │
         ▼
-  Live data store                ← latest value + timestamp per channel
+  Live data store                ← latest value, layout, and timestamp per channel
         │
         ▼
   NMEA sentence builder          ← one function per sentence type
