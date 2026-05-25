@@ -1,2 +1,2 @@
 pyserial>=3.5
-pyfastnet>=2.0.1
+pyfastnet>=2.0.13
