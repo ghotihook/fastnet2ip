@@ -89,9 +89,16 @@ def main():
     parser.add_argument("--ignore-gps", action="store_true",
                         help="Suppress GPS channels (LatLon, COG, SOG) — use when GPS is "
                              "already on the network to avoid duplicate/looping data")
+    parser.add_argument("--host", type=str, default="255.255.255.255",
+                        help="UDP destination host (default: 255.255.255.255)")
+    parser.add_argument("--udp-port", type=int, default=None,
+                        help="UDP port (default: 2002 for nmea0183, 2000 for nmea2000)")
 
     handler_class.add_arguments(parser)
     args = parser.parse_args()
+
+    if args.udp_port is None:
+        args.udp_port = 2002 if args.output == "nmea0183" else 2000
 
     set_log_level(args.log_level)
     logging.getLogger("fastnet2ip").setLevel(

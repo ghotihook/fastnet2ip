@@ -101,20 +101,13 @@ sudo systemctl start fastnet2ip
 | `--log-level LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `--live-data` | off | Print live channel table to console once per second |
 | `--ignore-gps` | off | Suppress GPS channels — see below |
-
-**NMEA 0183** (`--output nmea0183`)
-
-| Argument | Default | Description |
-|---|---|---|
-| `--udp-port N` | `2002` | UDP broadcast port |
-| `--host ADDR` | `255.255.255.255` | UDP broadcast address |
+| `--host ADDR` | `255.255.255.255` | UDP destination host |
+| `--udp-port N` | `2002` / `2000` | UDP port (default depends on output mode) |
 
 **NMEA 2000** (`--output nmea2000`)
 
 | Argument | Default | Description |
 |---|---|---|
-| `--udp-port N` | `2000` | UDP port |
-| `--host ADDR` | `255.255.255.255` | UDP destination host |
 | `--n2k-src N` | `201` | N2K source address 0–253 (accepts hex: `0xC9`) |
 | `--n2k-pri N` | `4` | Message priority 0 (highest) – 7 (lowest) |
 | `--n2k-format FMT` | `ydwg` | Wire format: `ydwg` or `pcdin` (see below) |

@@ -560,14 +560,6 @@ class NMEA2000Handler(OutputHandler):
     @classmethod
     def add_arguments(cls, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
-            "--host", type=str, default=DEFAULT_HOST,
-            help=f"UDP destination host (default: {DEFAULT_HOST})",
-        )
-        parser.add_argument(
-            "--udp-port", type=int, default=DEFAULT_N2K_PORT,
-            help=f"UDP port (default: {DEFAULT_N2K_PORT})",
-        )
-        parser.add_argument(
             "--n2k-src", type=lambda x: int(x, 0), default=201,
             help="N2K source address 0–253 (default: 201)",
         )
