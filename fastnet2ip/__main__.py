@@ -18,8 +18,15 @@ _HANDLERS = {
     "nmea2000": NMEA2000Handler,
 }
 
+_GPS_CHANNELS = frozenset({
+    "LatLon",
+    "Speed Over Ground",
+    "Course Over Ground (True)",
+    "Course Over Ground (Mag)",
+})
 
-def _drain_frame_queue(fq, handler, udp_socket):
+
+def _drain_frame_queue(fq, handler, udp_socket, ignore_gps=False):
     while True:
         try:
             frame = fq.get_nowait()
@@ -29,6 +36,8 @@ def _drain_frame_queue(fq, handler, udp_socket):
             continue
         for channel_name, channel_data in frame.get("values", {}).items():
             if not channel_data:
+                continue
+            if ignore_gps and channel_name in _GPS_CHANNELS:
                 continue
             channel_id   = channel_data.get("channel_id", "??")
             value        = channel_data.get("value")
@@ -40,7 +49,7 @@ def _drain_frame_queue(fq, handler, udp_socket):
             handler.process_channel(channel_name, old_entry, udp_socket)
 
 
-def run_loop(input_source, is_file, handler, udp_socket, show_live_data):
+def run_loop(input_source, is_file, handler, udp_socket, show_live_data, ignore_gps=False):
     fb = FrameBuffer()
     last_print = time.monotonic()
     while True:
@@ -48,7 +57,7 @@ def run_loop(input_source, is_file, handler, udp_socket, show_live_data):
         if data:
             fb.add_to_buffer(data)
             fb.get_complete_frames()
-            _drain_frame_queue(fb.frame_queue, handler, udp_socket)
+            _drain_frame_queue(fb.frame_queue, handler, udp_socket, ignore_gps)
 
         if show_live_data and time.monotonic() - last_print >= 1:
             print_live_data(fb)
@@ -77,6 +86,9 @@ def main():
                         help="Log level: DEBUG, INFO, WARNING, ERROR (default: INFO)")
     parser.add_argument("--live-data", action="store_true",
                         help="Print live channel table to console once per second")
+    parser.add_argument("--ignore-gps", action="store_true",
+                        help="Suppress GPS channels (LatLon, COG, SOG) — use when GPS is "
+                             "already on the network to avoid duplicate/looping data")
 
     handler_class.add_arguments(parser)
     args = parser.parse_args()
@@ -89,6 +101,10 @@ def main():
         getattr(logging, args.log_level.upper(), logging.INFO)
     )
 
+    if args.ignore_gps:
+        from fastnet_decoder import logger
+        logger.info(f"GPS suppressed: {', '.join(sorted(_GPS_CHANNELS))}")
+
     handler = handler_class()
     handler.setup(args)
 
@@ -100,7 +116,7 @@ def main():
     handler.startup(udp_socket)
 
     try:
-        run_loop(input_source, is_file, handler, udp_socket, args.live_data)
+        run_loop(input_source, is_file, handler, udp_socket, args.live_data, args.ignore_gps)
     except KeyboardInterrupt:
         from fastnet_decoder import logger
         logger.info("Shutting down. Goodbye!")

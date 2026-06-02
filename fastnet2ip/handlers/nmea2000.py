@@ -581,10 +581,6 @@ class NMEA2000Handler(OutputHandler):
             choices=list(_N2K_FORMATTERS),
             help="N2K UDP wire format: ydwg (default) or pcdin",
         )
-        parser.add_argument(
-            "--ignore-gps", action="store_true",
-            help="Suppress GPS channels (LatLon, COG, SOG)",
-        )
 
     def setup(self, args: argparse.Namespace) -> None:
         global N2K_SRC, N2K_PRI, _n2k_formatter, _ignored_channels
@@ -593,9 +589,6 @@ class NMEA2000Handler(OutputHandler):
         _n2k_formatter = _N2K_FORMATTERS[args.n2k_format]
         self._host = args.host
         self._n2k_port = args.udp_port
-        if args.ignore_gps:
-            _ignored_channels = _GPS_CHANNELS
-            logger.info(f"GPS suppressed: {', '.join(sorted(_GPS_CHANNELS))}")
         logger.info(
             f"NMEA 2000 → {args.host}:{args.udp_port}  "
             f"src={N2K_SRC}  pri={N2K_PRI}  fmt={args.n2k_format}"
@@ -605,8 +598,6 @@ class NMEA2000Handler(OutputHandler):
         _send_iso_address_claim(udp_socket, self._host, self._n2k_port)
 
     def process_channel(self, channel_name, old_entry, udp_socket):
-        if channel_name in _ignored_channels:
-            return
         now = time.monotonic()
         current = live_data.get(channel_name)
         new_key = (current["value"], current["display_text"]) if current else (None, None)
