@@ -101,12 +101,7 @@ pip3 install -r requirements.txt --upgrade
 
 ## Systemd Service
 
-Two example service files are provided:
-
-| File | Output mode |
-|---|---|
-| `fastnet2ip.service` | NMEA 0183 |
-| `fastnet2ip-n2k.service` | NMEA 2000 |
+A `fastnet2ip.service` file is provided with both output modes. Uncomment the `ExecStart` line for the mode you want (only one can be active at a time).
 
 > **Note:** Update the `BindsTo=`, `After=`, `WorkingDirectory=`, and `ExecStart=` lines to match your serial port and installation path before deploying.
 

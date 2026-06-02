@@ -25,7 +25,10 @@ Type=simple
 User=root
 ####################################### CHANGE THIS PATH
 WorkingDirectory=/home/alex060/fastnet2ip
+# NMEA 0183 output (uncomment one ExecStart only):
 ExecStart=/home/alex060/python_environment/bin/python3 -m fastnet2ip --output nmea0183 --serial /dev/ttySTM3 --udp-port 2002 --log-level INFO
+# NMEA 2000 output:
+#ExecStart=/home/alex060/python_environment/bin/python3 -m fastnet2ip --output nmea2000 --serial /dev/ttySTM3 --udp-port 2000 --n2k-format ydwg --n2k-src 201 --n2k-pri 4 --ignore-gps --log-level INFO
 Restart=always
 RestartSec=10
 
