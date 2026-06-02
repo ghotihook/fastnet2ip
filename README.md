@@ -120,19 +120,20 @@ sudo systemctl start fastnet2ip
 | `--n2k-format FMT` | `ydwg` | Wire format: `ydwg` or `pcdin` (see below) |
 
 
-## GPS and `--ignore-gps` (NMEA 2000)
+## GPS and `--ignore-gps`
 
 Most B&G systems receive GPS input from an external source (chartplotter, dedicated GPS receiver) and pass it through onto the Fastnet bus alongside the instrument data. If you are also connecting that same GPS source directly to your network, re-broadcasting the GPS data from this bridge creates a **feedback loop** — the chartplotter sees the same position arriving twice, which can cause jumps, conflicts, or incorrect averaging depending on the software.
 
-Use `--ignore-gps` to suppress the following channels:
+`--ignore-gps` works with both `--output nmea0183` and `--output nmea2000` and suppresses the following Fastnet channels:
 
-| Channel | PGN suppressed |
-|---|---|
-| LatLon | 129025 (Position) |
-| Speed Over Ground | 129026 (COG & SOG) |
-| Course Over Ground (True/Mag) | 129026 (COG & SOG) |
+| Fastnet channel | NMEA 0183 | NMEA 2000 |
+|---|---|---|
+| LatLon | GLL | PGN 129025 |
+| Speed Over Ground | VTG | PGN 129026 |
+| Course Over Ground (True) | VTG | PGN 129026 |
+| Course Over Ground (Mag) | VTG | PGN 129026 |
 
-If the bridge is the **only** GPS source on your network, omit this flag — the GPS data is useful.
+If the bridge is the **only** GPS source on your network, omit this flag.
 
 
 ## NMEA 0183 Output
