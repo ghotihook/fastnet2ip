@@ -1,13 +1,12 @@
-# service script for systemd
+# sudo cp fastnet2ip.service /etc/systemd/system/
+# sudo systemctl daemon-reload
+# sudo systemctl enable fastnet2ip
+# sudo systemctl start fastnet2ip
 #
-# 
-# sudo cp fastnet2ip.service /etc/systemd/system/fastnet2ip.service 
-# sudo systemctl status|cat fastnet2ip
-# sudo systemctl start|stop|restart fastnet2ip
-# sudo systemctl enable|disable fastnet2ip
-# sudo systemctl daemon-reload  (after editing this file)
-#
-#
+# sudo systemctl status fastnet2ip
+# sudo systemctl stop fastnet2ip
+# sudo systemctl restart fastnet2ip
+# journalctl -u fastnet2ip -f
 
 [Unit]
 Description=fastnet2ip Service
@@ -20,10 +19,10 @@ Type=simple
 User=root
 ####################################### CHANGE THIS PATH
 WorkingDirectory=/home/alex060/fastnet2ip
-# NMEA 0183 output (uncomment one ExecStart only):
-ExecStart=/home/alex060/python_environment/bin/python3 -m fastnet2ip --output nmea0183 --serial /dev/ttySTM3 --udp-port 2002 --log-level INFO
-# NMEA 2000 output:
-#ExecStart=/home/alex060/python_environment/bin/python3 -m fastnet2ip --output nmea2000 --serial /dev/ttySTM3 --udp-port 2000 --n2k-format ydwg --n2k-src 201 --n2k-pri 4 --ignore-gps --log-level INFO
+# NMEA 2000 output (uncomment one ExecStart only):
+ExecStart=/home/alex060/python_environment/bin/python3 -m fastnet2ip --output nmea2000 --serial /dev/ttySTM3 --udp-port 2000 --n2k-format ydwg --n2k-src 201 --n2k-pri 4 --ignore-gps --log-level INFO
+# NMEA 0183 output:
+#ExecStart=/home/alex060/python_environment/bin/python3 -m fastnet2ip --output nmea0183 --serial /dev/ttySTM3 --udp-port 2002 --log-level INFO
 Restart=always
 RestartSec=10
 
