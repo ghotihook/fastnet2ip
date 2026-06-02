@@ -12,9 +12,7 @@
 [Unit]
 Description=fastnet2ip Service
 ####################################### CHANGE THIS IF PORT CHANGES
-After=network-online.target dev-ttySTM3.device
-Wants=network-online.target
-####################################### CHANGE THIS IF PORT CHANGES
+After=dev-ttySTM3.device
 BindsTo=dev-ttySTM3.device
 StartLimitIntervalSec=300
 StartLimitBurst=5
