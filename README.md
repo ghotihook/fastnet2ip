@@ -26,9 +26,9 @@ This repo is a ready-to-run application. It depends on [pyfastnet](https://githu
 Fastnet uses two-wire differential transmission. RS-485 adapters work well; the CAN Hat option includes 120 ohm termination which is recommended.
 
 **Tested hardware**
-- Raspberry 4/5
+- Raspberry 4/5/Zero2w
 - Mac
-- [M5Stack Core MP135](https://shop.m5stack.com/products/m5stack-coremp135-w-stm32mp135d)
+- [M5Stack Core MP135](https://shop.m5stack.com/products/m5stack-coremp135-w-stm32mp135d) - this great little package has a RS422/485 built in. A bit more fiddly to setup but worthwhile for a permenent install, recommend get it workthing with a usb dongle/rpi first
 - [DTECH USB RS422/RS485 USB dongle](https://www.amazon.com.au/DTECH-Converter-Adapter-Supports-Windows/dp/B076WVFXN8) — works out of the box
 - [Waveshare RS485 CAN HAT](https://www.waveshare.com/wiki/RS485_CAN_HAT) — add to `/boot/firmware/config.txt`:
   ```
@@ -47,9 +47,16 @@ Fastnet uses two-wire differential transmission. RS-485 adapters work well; the 
 
 ## Installation
 
-Tested on Raspberry Pi with a stock OS install, 
+Tested on Raspberry Pi with a stock OS install, Many systems will ask you to run from a python venv 
 
 ```bash
+python3 -m venv --system-site-packages ~/python_environment
+source ~/python_environment/bin/activate
+```
+
+then download the repo into your home directory
+```bash
+cd ~
 git clone https://github.com/ghotihook/fastnet2ip
 cd fastnet2ip
 pip3 install -r requirements.txt
@@ -70,6 +77,17 @@ python3 fastnet2ip.py --serial /dev/ttyUSB0 --udp-port 2002 --log-level INFO --l
 
 ```bash
 python3 fastnet2ip.py --file test_files/example1_fastnet_data.txt --udp-port 2002 --log-level ERROR --live-data
+```
+
+
+## Upgrading
+
+```bash
+source ~/python_environment/bin/activate
+cd ~/fastnet2ip
+git pull origin main
+pip3 install pyfastnet --upgrade
+
 ```
 
 
