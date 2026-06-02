@@ -139,18 +139,21 @@ If the bridge is the **only** GPS source on your network, omit this flag — the
 
 | Sentence | Content |
 |---|---|
-| VHW | Boatspeed; heading True or Magnetic per instrument layout |
+| VHW | Boatspeed; heading in True or Magnetic field per instrument configuration |
 | DBT | Depth below transducer |
 | RSA | Rudder angle |
-| HDM | Magnetic heading |
-| MWD | True wind direction and speed |
+| HDM | Magnetic heading (emitted when instrument is configured for magnetic reference) |
+| HDT | True heading (emitted when instrument is configured for true reference) |
+| MWD | True wind direction and speed; direction True or Magnetic per instrument configuration |
 | MWV | True wind angle/speed (ref T) |
 | MWV | Apparent wind angle/speed (ref R) |
 | MDA | Air temp, sea temp, barometric pressure |
 | VTG | COG and SOG |
 | VPW | Velocity made good |
-| VDR | Tidal set and drift |
+| VDR | Tidal set and drift; set direction True or Magnetic per instrument configuration |
 | GLL | Latitude/Longitude |
+
+> **Note on True vs Magnetic:** The Fastnet data stream carries no magnetic variation or deviation. Whether a channel is labelled True or Magnetic reflects the reference configured in the B&G instrument — not a computed conversion. VHW, HDM/HDT, MWD, and VDR will each output whichever reference the instrument is set to.
 
 XDR transducers:
 
