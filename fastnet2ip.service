@@ -14,9 +14,6 @@ Description=fastnet2ip Service
 ####################################### CHANGE THIS IF PORT CHANGES
 After=dev-ttySTM3.device
 BindsTo=dev-ttySTM3.device
-StartLimitIntervalSec=300
-StartLimitBurst=5
-StartLimitAction=reboot
 
 [Service]
 Type=simple
