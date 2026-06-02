@@ -26,7 +26,9 @@ This repo is a ready-to-run application. It depends on [pyfastnet](https://githu
 Fastnet uses two-wire differential transmission. RS-485 adapters work well; the CAN Hat option includes 120 ohm termination which is recommended.
 
 **Tested hardware**
-- [M5Stack Core MP135](https://shop.m5stack.com/products/m5stack-coremp135-w-stm32mp135d)
+- Raspberry 4/5/Zero2w
+- Mac
+- [M5Stack Core MP135](https://shop.m5stack.com/products/m5stack-coremp135-w-stm32mp135d) - this great little package has a RS422/485 built in. A bit more fiddly to setup but worthwhile for a permenent install, recommend get it workthing with a usb dongle/rpi first
 - [DTECH USB RS422/RS485 USB dongle](https://www.amazon.com.au/DTECH-Converter-Adapter-Supports-Windows/dp/B076WVFXN8) — works out of the box
 - [Waveshare RS485 CAN HAT](https://www.waveshare.com/wiki/RS485_CAN_HAT) — add to `/boot/firmware/config.txt`:
   ```
@@ -45,25 +47,30 @@ Fastnet uses two-wire differential transmission. RS-485 adapters work well; the 
 
 ## Installation
 
-Tested on Raspberry Pi with a stock OS install.
+Tested on Raspberry Pi with a stock OS install, Many systems will ask you to run from a python venv 
 
 ```bash
-pip3 install "pyfastnet>=2.0.13"
+python3 -m venv --system-site-packages ~/python_environment
+source ~/python_environment/bin/activate
 ```
 
-Or clone this repo and install dependencies:
-
+then download the repo into your home directory
 ```bash
+cd ~
+git clone https://github.com/ghotihook/fastnet2ip
+cd fastnet2ip
 pip3 install -r requirements.txt
+
 ```
 
 
 ## Running
 
-**From a serial port (live data)**
+**From a serial port (live data) for testing**
+> **Note:** don't forget to change the serial and udp port
 
 ```bash
-python3 fastnet2ip.py --serial /dev/ttyUSB0 --udp-port 2002 --log-level INFO
+python3 fastnet2ip.py --serial /dev/ttyUSB0 --udp-port 2002 --log-level INFO --live-data
 ```
 
 **From a recorded hex file (simulation)**
@@ -71,6 +78,33 @@ python3 fastnet2ip.py --serial /dev/ttyUSB0 --udp-port 2002 --log-level INFO
 ```bash
 python3 fastnet2ip.py --file test_files/example1_fastnet_data.txt --udp-port 2002 --log-level ERROR --live-data
 ```
+
+
+## Upgrading
+
+```bash
+source ~/python_environment/bin/activate
+cd ~/fastnet2ip
+git pull origin main
+pip3 install pyfastnet --upgrade
+
+```
+
+
+## Systemd Service
+
+A `fastnet2ip.service` file is provided once you have it tested and working you can configure it to auto run with systemd. 
+
+> **Note:** The service file defaults to `/dev/ttySTM3`. Update the `BindsTo=`, `After=`, and `ExecStart=` lines to match your serial port and installation path before deploying. It also have paths to the python venv and the script hard coded, you need to change these to match your system
+
+```bash
+sudo cp fastnet2ip.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable fastnet2ip
+sudo systemctl start fastnet2ip
+```
+
+
 
 **Command-line arguments**
 
@@ -117,19 +151,6 @@ XDR transducers:
 
 ![Example console output](images/console_output.jpg "Fastnet live data console")
 
-
-## Systemd Service
-
-A `fastnet2ip.service` file is provided for running at startup.
-
-> **Note:** The service file defaults to `/dev/ttySTM3`. Update the `BindsTo=`, `After=`, and `ExecStart=` lines to match your serial port and installation path before deploying.
-
-```bash
-sudo cp fastnet2ip.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable fastnet2ip
-sudo systemctl start fastnet2ip
-```
 
 
 ## Bench Testing Tools
