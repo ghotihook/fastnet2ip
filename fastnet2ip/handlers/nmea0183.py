@@ -149,13 +149,16 @@ def process_mda():
 
 
 def process_hdm():
-    mag = get_live_data("Heading")
+    hdg = get_live_data("Heading")
     hdg_layout = get_live_layout("Heading")
-    if hdg_layout != "°M":
-        logger.debug(f"process_hdm: heading layout {hdg_layout!r} is not magnetic — skipping")
+    hdg_str = f"{hdg:.1f}" if hdg is not None else ""
+    if hdg_layout == "°M":
+        return _sentence(f"IIHDM,{hdg_str},M")
+    elif hdg_layout == "°T":
+        return _sentence(f"IIHDT,{hdg_str},T")
+    else:
+        logger.debug(f"process_hdm: unknown heading layout {hdg_layout!r} — skipping")
         return None
-    mag_str = f"{mag:.1f}" if mag is not None else ""
-    return _sentence(f"IIHDM,{mag_str},M")
 
 
 def process_vtg():
