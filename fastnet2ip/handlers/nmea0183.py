@@ -316,12 +316,12 @@ class NMEA0183Handler(OutputHandler):
             help=f"UDP broadcast port (default: {DEFAULT_UDP_PORT})",
         )
         parser.add_argument(
-            "--broadcast-host", type=str, default=DEFAULT_HOST,
+            "--host", type=str, default=DEFAULT_HOST,
             help=f"UDP broadcast address (default: {DEFAULT_HOST})",
         )
 
     def setup(self, args: argparse.Namespace) -> None:
-        self._host = args.broadcast_host
+        self._host = args.host
         self._port = args.udp_port
         logger.info(f"NMEA 0183 → {self._host}:{self._port}")
 

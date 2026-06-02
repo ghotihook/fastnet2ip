@@ -106,7 +106,7 @@ sudo systemctl start fastnet2ip
 | Argument | Default | Description |
 |---|---|---|
 | `--udp-port N` | `2002` | UDP broadcast port |
-| `--broadcast-host ADDR` | `255.255.255.255` | UDP broadcast address |
+| `--host ADDR` | `255.255.255.255` | UDP broadcast address |
 
 **NMEA 2000** (`--output nmea2000`)
 
