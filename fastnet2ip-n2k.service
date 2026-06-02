@@ -1,33 +1,29 @@
-# service script for systemd
+# Service file for NMEA 2000 output mode
 #
-# 
-# sudo cp fastnet2ip.service /etc/systemd/system/fastnet2ip.service 
-# sudo systemctl status|cat fastnet2ip
-# sudo systemctl start|stop|restart fastnet2ip
-# sudo systemctl enable|disable fastnet2ip
-# sudo systemctl daemon-reload  (after editing this file)
+# sudo cp fastnet2ip-n2k.service /etc/systemd/system/fastnet2ip-n2k.service
+# sudo systemctl daemon-reload
+# sudo systemctl enable fastnet2ip-n2k
+# sudo systemctl start fastnet2ip-n2k
+# sudo systemctl status fastnet2ip-n2k
 #
-#
+# To view logs: journalctl -u fastnet2ip-n2k -f
 
 [Unit]
-Description=fastnet2ip Service
+Description=fastnet2ip NMEA 2000 bridge
 ####################################### CHANGE THIS IF PORT CHANGES
 After=network-online.target dev-ttySTM3.device
-Wants=network-online.target
 ####################################### CHANGE THIS IF PORT CHANGES
 BindsTo=dev-ttySTM3.device
-StartLimitIntervalSec=300
-StartLimitBurst=5
-StartLimitAction=reboot
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
 User=root
 ####################################### CHANGE THIS PATH
 WorkingDirectory=/home/alex060/fastnet2ip
-ExecStart=/home/alex060/python_environment/bin/python3 -m fastnet2ip --output nmea0183 --serial /dev/ttySTM3 --udp-port 2002 --log-level INFO
+ExecStart=/home/alex060/python_environment/bin/python3 -m fastnet2ip --output nmea2000 --serial /dev/ttySTM3 --host 255.255.255.255 --udp-port 2000 --n2k-src 201 --n2k-pri 4 --n2k-format ydwg --log-level INFO --ignore-gps
 Restart=always
-RestartSec=10
+RestartSec=30
 
 # === RESOURCE LIMITS ===
 OOMScoreAdjust=-700
@@ -36,13 +32,12 @@ MemoryMax=128M
 MemoryHigh=96M
 TimeoutStopSec=30
 
-
 # === LOGGING ===
+StandardInput=null
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=fastnet2ip
 Environment=PYTHONUNBUFFERED=1
-
 
 [Install]
 WantedBy=multi-user.target
