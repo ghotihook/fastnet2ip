@@ -40,6 +40,7 @@ _KN_MS            = 0.514444
 _channel_last_sent: dict = {}
 _ignored_channels: set   = set()
 _sid = 0
+_hb_seq = 0
 
 _GPS_CHANNELS = frozenset({
     "LatLon",
@@ -167,6 +168,40 @@ def _send_iso_address_claim(udp_socket, host, n2k_port):
         except socket.error as e:
             logger.error("ISO address claim send error: %s", e)
     logger.info("ISO address claim sent (PGN 60928, src=%d)", N2K_SRC)
+
+
+def _send_heartbeat(udp_socket, host, n2k_port):
+    global _hb_seq
+    frames = _n2k(126993, dataTransmitOffset=60.0, sequenceCounter=_hb_seq)
+    _hb_seq = (_hb_seq + 1) % 253
+    if frames:
+        for msg in frames:
+            try:
+                udp_socket.sendto(msg.encode(), (host, n2k_port))
+            except socket.error as e:
+                logger.error("Heartbeat send error: %s", e)
+    logger.info("Heartbeat sent (PGN 126993, seq=%d)", (_hb_seq - 1) % 253)
+
+
+def _send_product_info(udp_socket, host, n2k_port):
+    frames = _n2k(
+        126996,
+        nmea2000Version=1.3,
+        productCode=1,
+        modelId="fastnet2ip",
+        softwareVersionCode="dev",
+        modelVersion="1.0",
+        modelSerialCode="000001",
+        certificationLevel="Level A",
+        loadEquivalency=1,
+    )
+    if frames:
+        for msg in frames:
+            try:
+                udp_socket.sendto(msg.encode(), (host, n2k_port))
+            except socket.error as e:
+                logger.error("Product info send error: %s", e)
+    logger.info("Product information sent (PGN 126996)")
 
 
 # Proprietary PGN manufacturer header: B&G (code 381), Marine industry (code 4).
@@ -588,6 +623,14 @@ class NMEA2000Handler(OutputHandler):
 
     def startup(self, udp_socket: socket.socket) -> None:
         _send_iso_address_claim(udp_socket, self._host, self._n2k_port)
+        _send_product_info(udp_socket, self._host, self._n2k_port)
+        _send_heartbeat(udp_socket, self._host, self._n2k_port)
+        self._last_heartbeat = time.monotonic()
+
+    def tick(self, udp_socket: socket.socket) -> None:
+        if time.monotonic() - self._last_heartbeat >= 60.0:
+            _send_heartbeat(udp_socket, self._host, self._n2k_port)
+            self._last_heartbeat = time.monotonic()
 
     def process_channel(self, channel_name, old_entry, udp_socket):
         now = time.monotonic()

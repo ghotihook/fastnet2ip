@@ -59,6 +59,8 @@ def run_loop(input_source, is_file, handler, udp_socket, show_live_data, ignore_
             fb.get_complete_frames()
             _drain_frame_queue(fb.frame_queue, handler, udp_socket, ignore_gps)
 
+        handler.tick(udp_socket)
+
         if show_live_data and time.monotonic() - last_print >= 1:
             print_live_data(fb)
             last_print = time.monotonic()

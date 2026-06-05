@@ -31,6 +31,9 @@ class OutputHandler(ABC):
         rate-limit and value-change logic.
         """
 
+    def tick(self, udp_socket: socket.socket) -> None:
+        """Called once per run_loop iteration. Override for periodic tasks."""
+
     @property
     @abstractmethod
     def udp_host(self) -> str: ...
