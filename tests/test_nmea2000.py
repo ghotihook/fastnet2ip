@@ -89,10 +89,11 @@ class TestSmoke(unittest.TestCase):
         self.assertFalse(bad, f"Malformed N2K messages: {bad[:3]}")
 
     def test_raw_sensor_pgns_present_and_valid(self):
-        self.assertIn(65280, self.pgns, "PGN 65280 (raw wind/speed) not found")
+        self.assertIn(65280, self.pgns, "PGN 65280 (raw wind) not found")
         self.assertIn(65281, self.pgns, "PGN 65281 (raw heading) not found")
+        self.assertIn(65282, self.pgns, "PGN 65282 (raw boatspeed) not found")
         B_AND_G_HDR = bytes([0x7D, 0x81])
-        for pgn in (65280, 65281):
+        for pgn in (65280, 65281, 65282):
             msgs = [
                 m for m in self.n2k
                 if len(m.strip().split()) >= 3

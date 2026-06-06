@@ -68,8 +68,9 @@ _PGN_NAMES: dict[int, str] = {
     130306: "Wind Data",
     130312: "Temperature",
     130314: "Pressure",
-    65280:  "Proprietary: Raw Wind+Speed",
+    65280:  "Proprietary: Raw Wind",
     65281:  "Proprietary: Raw Heading",
+    65282:  "Proprietary: Raw Boatspeed",
 }
 
 
@@ -454,17 +455,23 @@ def process_air_temp_f():
 def _prop_raw_wind_speed() -> list[str] | None:
     ws = get_live_data("Apparent Wind Speed (Raw)")
     wa = get_live_data("Apparent Wind Angle (Raw)")
-    bs = get_live_data("Boatspeed (Raw)")
     if ws is None and wa is None:
         return None
-    return _n2k_proprietary(65280, _PROP_MFR_HDR + struct.pack('<HHH', _p_u16(ws), _p_u16(wa), _p_u16(bs)))
+    return _n2k_proprietary(65280, _PROP_MFR_HDR + struct.pack('<HH', _p_u16(ws), _p_u16(wa)))
 
 
 def _prop_raw_heading() -> list[str] | None:
     hd = get_live_data("Heading (Raw)")
     if hd is None:
         return None
-    return _n2k_proprietary(65281, _PROP_MFR_HDR + struct.pack('<HHH', _p_u16(hd), 0xFFFF, 0xFFFF))
+    return _n2k_proprietary(65281, _PROP_MFR_HDR + struct.pack('<H', _p_u16(hd)))
+
+
+def _prop_raw_boatspeed() -> list[str] | None:
+    bs = get_live_data("Boatspeed (Raw)")
+    if bs is None:
+        return None
+    return _n2k_proprietary(65282, _PROP_MFR_HDR + struct.pack('<H', _p_u16(bs)))
 
 
 # ── Channel map ───────────────────────────────────────────────────────────────
@@ -474,7 +481,7 @@ _CHANNEL_MAP: dict[str, Callable[[], list[str] | None] | str] = {
     "Rudder Angle":                 process_rudder,
     "Heading (Raw)":                _prop_raw_heading,
     "Boatspeed (Knots)":            process_boatspeed,
-    "Boatspeed (Raw)":              "read from live_data by 'Apparent Wind Speed (Raw)' → PGN 65280",
+    "Boatspeed (Raw)":              _prop_raw_boatspeed,
     "Depth (Meters)":               process_depth,
     "Depth (Feet)":                 "duplicate of Depth (Meters) in different units — not sent",
     "Depth (Fathoms)":              "duplicate of Depth (Meters) in different units — not sent",
