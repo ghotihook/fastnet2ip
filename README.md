@@ -181,8 +181,9 @@ XDR transducers:
 | 130306 | Wind Data (apparent, true boat-ref, true ground-ref) |
 | 130312 | Temperature (sea + air) |
 | 130314 | Pressure |
-| 65280 | Proprietary: raw wind speed, wind angle, boatspeed |
+| 65280 | Proprietary: raw wind speed, wind angle |
 | 65281 | Proprietary: raw heading |
+| 65282 | Proprietary: raw boatspeed |
 
 **Wire formats** (`--n2k-format`):
 - `ydwg` — Yacht Devices RAW UDP: `HH:MM:SS.mmm R XXXXXXXX DD DD DD...`
