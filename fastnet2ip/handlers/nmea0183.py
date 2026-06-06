@@ -129,7 +129,15 @@ def process_mda():
 
     bp_hpa     = get_live_data("Barometric Pressure")
     air_temp   = get_live_data("Air Temperature (°C)")
+    if air_temp is None:
+        t_f = get_live_data("Air Temperature (°F)")
+        if t_f is not None:
+            air_temp = (t_f - 32) * 5 / 9
     water_temp = get_live_data("Sea Temperature (°C)")
+    if water_temp is None:
+        t_f = get_live_data("Sea Temperature (°F)")
+        if t_f is not None:
+            water_temp = (t_f - 32) * 5 / 9
     bp_inhg = bp_hpa * 0.0295299830714 if bp_hpa is not None else None
     bp_bar  = bp_hpa / 1000 if bp_hpa is not None else None
     body = (
@@ -276,7 +284,9 @@ _TRIGGER_MAP = {
     "Apparent Wind Speed (Knots)": process_mwv_apparent,
     "Apparent Wind Angle":         process_mwv_apparent,
     "Air Temperature (°C)":        process_mda,
+    "Air Temperature (°F)":        process_mda,
     "Sea Temperature (°C)":        process_mda,
+    "Sea Temperature (°F)":        process_mda,
     "Barometric Pressure":         process_mda,
     "Heading":                     process_hdm,
     "Speed Over Ground":           process_vtg,
