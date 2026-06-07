@@ -633,11 +633,16 @@ class NMEA2000Handler(OutputHandler):
         _send_product_info(udp_socket, self._host, self._n2k_port)
         _send_heartbeat(udp_socket, self._host, self._n2k_port)
         self._last_heartbeat = time.monotonic()
+        self._last_product_info = time.monotonic()
 
     def tick(self, udp_socket: socket.socket) -> None:
-        if time.monotonic() - self._last_heartbeat >= 60.0:
+        now = time.monotonic()
+        if now - self._last_heartbeat >= 60.0:
             _send_heartbeat(udp_socket, self._host, self._n2k_port)
-            self._last_heartbeat = time.monotonic()
+            self._last_heartbeat = now
+        if now - self._last_product_info >= 60.0:
+            _send_product_info(udp_socket, self._host, self._n2k_port)
+            self._last_product_info = now
 
     def process_channel(self, channel_name, old_entry, udp_socket):
         now = time.monotonic()
