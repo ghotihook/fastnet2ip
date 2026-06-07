@@ -322,6 +322,9 @@ class NMEA0183Handler(OutputHandler):
     _host: str = DEFAULT_HOST
     _port: int = DEFAULT_UDP_PORT
 
+    def __init__(self):
+        self._last_sent: dict[str, datetime] = {}
+
     @classmethod
     def add_arguments(cls, parser: argparse.ArgumentParser) -> None:
         pass
@@ -345,20 +348,20 @@ class NMEA0183Handler(OutputHandler):
         if old_entry:
             old_val = old_entry.get("value")
             old_comparable = old_val if old_val is not None else old_entry.get("display_text")
-            old_ts = old_entry.get("timestamp")
         else:
             old_comparable = None
-            old_ts = None
 
-        age_exceeded = True
-        if old_ts:
-            age_exceeded = (datetime.now(timezone.utc) - old_ts) > timedelta(seconds=REBROADCAST_AGE)
+        last_sent = self._last_sent.get(channel_name)
+        age_exceeded = last_sent is None or (
+            datetime.now(timezone.utc) - last_sent > timedelta(seconds=REBROADCAST_AGE)
+        )
 
         if (new_comparable != old_comparable) or age_exceeded:
             message = _trigger(channel_name)
             if message:
                 try:
                     udp_socket.sendto(message.encode(), (self._host, self._port))
+                    self._last_sent[channel_name] = datetime.now(timezone.utc)
                     logger.debug(f"NMEA0183: {message.strip()}")
                 except socket.error as e:
                     logger.error(f"Failed to send message: {e}")
