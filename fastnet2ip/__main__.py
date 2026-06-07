@@ -25,8 +25,13 @@ _GPS_CHANNELS = frozenset({
     "Course Over Ground (Mag)",
 })
 
+_HEADING_CHANNELS = frozenset({
+    "Heading",
+    "Heading (Raw)",
+})
 
-def _drain_frame_queue(fq, handler, udp_socket, ignore_gps=False):
+
+def _drain_frame_queue(fq, handler, udp_socket, ignore_gps=False, ignore_heading=False):
     while True:
         try:
             frame = fq.get_nowait()
@@ -39,6 +44,8 @@ def _drain_frame_queue(fq, handler, udp_socket, ignore_gps=False):
                 continue
             if ignore_gps and channel_name in _GPS_CHANNELS:
                 continue
+            if ignore_heading and channel_name in _HEADING_CHANNELS:
+                continue
             channel_id   = channel_data.get("channel_id", "??")
             value        = channel_data.get("value")
             display_text = channel_data.get("display_text", "")
@@ -49,7 +56,7 @@ def _drain_frame_queue(fq, handler, udp_socket, ignore_gps=False):
             handler.process_channel(channel_name, old_entry, udp_socket)
 
 
-def run_loop(input_source, is_file, handler, udp_socket, show_live_data, ignore_gps=False):
+def run_loop(input_source, is_file, handler, udp_socket, show_live_data, ignore_gps=False, ignore_heading=False):
     fb = FrameBuffer()
     last_print = time.monotonic()
     while True:
@@ -57,7 +64,7 @@ def run_loop(input_source, is_file, handler, udp_socket, show_live_data, ignore_
         if data:
             fb.add_to_buffer(data)
             fb.get_complete_frames()
-            _drain_frame_queue(fb.frame_queue, handler, udp_socket, ignore_gps)
+            _drain_frame_queue(fb.frame_queue, handler, udp_socket, ignore_gps, ignore_heading)
 
         handler.tick(udp_socket)
 
@@ -91,6 +98,9 @@ def main():
     parser.add_argument("--ignore-gps", action="store_true",
                         help="Suppress GPS channels (LatLon, COG, SOG) — use when GPS is "
                              "already on the network to avoid duplicate/looping data")
+    parser.add_argument("--ignore-heading", action="store_true",
+                        help="Suppress heading channels (Heading, Heading (Raw)) — use when "
+                             "a compass is already on the network to avoid duplicate/looping data")
     parser.add_argument("--host", type=str, default="255.255.255.255",
                         help="UDP destination host (default: 255.255.255.255)")
     parser.add_argument("--udp-port", type=int, default=None,
@@ -114,6 +124,10 @@ def main():
         from fastnet_decoder import logger
         logger.info(f"GPS suppressed: {', '.join(sorted(_GPS_CHANNELS))}")
 
+    if args.ignore_heading:
+        from fastnet_decoder import logger
+        logger.info(f"Heading suppressed: {', '.join(sorted(_HEADING_CHANNELS))}")
+
     handler = handler_class()
     handler.setup(args)
 
@@ -125,7 +139,7 @@ def main():
     handler.startup(udp_socket)
 
     try:
-        run_loop(input_source, is_file, handler, udp_socket, args.live_data, args.ignore_gps)
+        run_loop(input_source, is_file, handler, udp_socket, args.live_data, args.ignore_gps, args.ignore_heading)
     except KeyboardInterrupt:
         from fastnet_decoder import logger
         logger.info("Shutting down. Goodbye!")
