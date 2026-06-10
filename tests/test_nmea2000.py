@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 """Smoke tests for the NMEA 2000 output handler."""
 import argparse
+import logging
 import os
 import unittest
 
 from fastnet2ip.handlers import nmea2000 as bridge
 from fastnet2ip.core import data_store
-from fastnet_decoder import FrameBuffer
+from fastnet2ip.core.data_store import update_live_data
+from fastnet2ip.core.input import initialize_input_source
+from fastnet2ip.__main__ import run_loop, _drain_frame_queue
+from fastnet_decoder import FrameBuffer, set_log_level
+
+# Keep handler setup/startup INFO logs out of test output.
+logging.getLogger("fastnet2ip.handlers.nmea2000").setLevel(logging.ERROR)
 
 DATA_DIR  = os.path.join(os.path.dirname(__file__), "data")
 TEST_FILE = os.path.join(DATA_DIR, "big.txt")
@@ -32,6 +39,22 @@ def _pgn_from_can_id(can_id_hex: str) -> int:
     return (dp << 16) | (pf << 8) | (ps if pf >= 0xF0 else 0)
 
 
+class _DiscardSocket:
+    def sendto(self, data, addr):
+        pass
+    def close(self):
+        pass
+
+
+def _make_handler(n2k_port=2000):
+    handler = bridge.NMEA2000Handler()
+    handler.setup(argparse.Namespace(
+        host="127.0.0.1", udp_port=n2k_port,
+        n2k_src=0x22, n2k_pri=4, n2k_format="ydwg",
+    ))
+    return handler
+
+
 def _run_bridge(file_path, n2k_port=2000):
     sent_n2k = []
 
@@ -44,22 +67,16 @@ def _run_bridge(file_path, n2k_port=2000):
     data_store.live_data.clear()
     bridge._channel_last_sent.clear()
     bridge._sid = 0
-    bridge.N2K_SRC = 0x22
-    bridge.set_log_level("ERROR")
+    set_log_level("ERROR")
 
-    args = argparse.Namespace(
-        serial=None,
-        file=file_path,
-        host="127.0.0.1",
-        nmea2000_port=n2k_port,
-        n2k_src=0x22,
-        log_level="ERROR",
-        live_data=False,
-    )
+    handler = _make_handler(n2k_port)
+    # Startup messages (address claim, product info, heartbeat) go to a
+    # discard socket so assertions only see data-driven output.
+    handler.startup(_DiscardSocket())
 
-    input_source, is_file = bridge.initialize_input_source(args)
-    bridge._run(input_source, is_file, FakeSocket(),
-                args.host, args.nmea2000_port, args.live_data, FrameBuffer())
+    args = argparse.Namespace(serial=None, file=file_path)
+    input_source, is_file = initialize_input_source(args)
+    run_loop(input_source, is_file, handler, FakeSocket(), show_live_data=False)
     return sent_n2k
 
 
@@ -116,15 +133,15 @@ class TestSmoke(unittest.TestCase):
             def sendto(self, data, addr):
                 sent.append(data)
 
-        bridge.process_frame_queue(FrameBuffer().frame_queue, FakeSocket(), "127.0.0.1", 2000)
+        _drain_frame_queue(FrameBuffer().frame_queue, _make_handler(), FakeSocket())
         self.assertEqual(sent, [])
 
     def test_awa_normalised_non_negative(self):
         data_store.live_data.clear()
         bridge._channel_last_sent.clear()
         for awa_deg in (-90, -1, -179):
-            bridge.update_live_data("Apparent Wind Angle", "0x28", awa_deg, str(awa_deg), "-[data]")
-            bridge.update_live_data("Apparent Wind Speed (Knots)", "0x29", 10.0, str(10.0), None)
+            update_live_data("Apparent Wind Angle", "0x28", awa_deg, str(awa_deg), "-[data]")
+            update_live_data("Apparent Wind Speed (Knots)", "0x29", 10.0, str(10.0), None)
             frames = bridge.process_apparent_wind()
             self.assertIsNotNone(frames, f"No frames for AWA={awa_deg}")
             self.assertTrue(len(frames) > 0)
@@ -149,9 +166,9 @@ class TestSmoke(unittest.TestCase):
     def test_tws_update_emits_both_references(self):
         data_store.live_data.clear()
         bridge._channel_last_sent.clear()
-        bridge.update_live_data("True Wind Angle", "0x2A", 45.0, "45", None)
-        bridge.update_live_data("True Wind Speed (Knots)", "0x2B", 12.0, "12.0", None)
-        bridge.update_live_data("True Wind Direction", "0x2C", 180.0, "180°M", "°M")
+        update_live_data("True Wind Angle", "0x2A", 45.0, "45", None)
+        update_live_data("True Wind Speed (Knots)", "0x2B", 12.0, "12.0", None)
+        update_live_data("True Wind Direction", "0x2C", 180.0, "180°M", "°M")
         twa_frames = bridge.process_true_wind()
         twd_frames = bridge.process_twd()
         self.assertIsNotNone(twa_frames)
@@ -184,44 +201,44 @@ class TestBearingReference(unittest.TestCase):
         return None
 
     def test_bearing_reference_magnetic(self):
-        bridge.update_live_data("Heading", "0x49", 45.0, "45°M", "°M")
+        update_live_data("Heading", "0x49", 45.0, "45°M", "°M")
         self.assertEqual(bridge._bearing_reference("Heading"), "Magnetic")
 
     def test_bearing_reference_true(self):
-        bridge.update_live_data("Heading", "0x49", 45.0, "45°T", "°T")
+        update_live_data("Heading", "0x49", 45.0, "45°T", "°T")
         self.assertEqual(bridge._bearing_reference("Heading"), "True")
 
     def test_bearing_reference_channel_absent_is_silent(self):
         self.assertIsNone(bridge._bearing_reference("Heading"))
 
     def test_bearing_reference_bad_layout_logs_error(self):
-        bridge.update_live_data("Heading", "0x49", 45.0, "45", "?")
+        update_live_data("Heading", "0x49", 45.0, "45", "?")
         with self.assertLogs("fastnet2ip.handlers.nmea2000", level="ERROR") as cm:
             result = bridge._bearing_reference("Heading")
         self.assertIsNone(result)
         self.assertTrue(any("unrecognised layout" in line for line in cm.output))
 
     def test_heading_encodes_magnetic_reference(self):
-        bridge.update_live_data("Heading", "0x49", 45.0, "45°M", "°M")
+        update_live_data("Heading", "0x49", 45.0, "45°M", "°M")
         frames = bridge.process_heading()
         self.assertIsNotNone(frames)
         self.assertEqual(self._decode_field(frames, 127250, "reference"), "Magnetic")
 
     def test_heading_encodes_true_reference(self):
-        bridge.update_live_data("Heading", "0x49", 45.0, "45°T", "°T")
+        update_live_data("Heading", "0x49", 45.0, "45°T", "°T")
         frames = bridge.process_heading()
         self.assertIsNotNone(frames)
         self.assertEqual(self._decode_field(frames, 127250, "reference"), "True")
 
     def test_heading_bad_layout_skips_frame(self):
-        bridge.update_live_data("Heading", "0x49", 45.0, "45", "?")
+        update_live_data("Heading", "0x49", 45.0, "45", "?")
         with self.assertLogs("fastnet2ip.handlers.nmea2000", level="ERROR"):
             frames = bridge.process_heading()
         self.assertIsNone(frames)
 
     def test_twd_encodes_magnetic_reference(self):
-        bridge.update_live_data("True Wind Direction", "0x6D", 180.0, "180°M", "°M")
-        bridge.update_live_data("True Wind Speed (Knots)", "0x55", 12.0, "12.0", None)
+        update_live_data("True Wind Direction", "0x6D", 180.0, "180°M", "°M")
+        update_live_data("True Wind Speed (Knots)", "0x55", 12.0, "12.0", None)
         frames = bridge.process_twd()
         self.assertIsNotNone(frames)
         self.assertEqual(
@@ -230,8 +247,8 @@ class TestBearingReference(unittest.TestCase):
         )
 
     def test_twd_encodes_true_reference(self):
-        bridge.update_live_data("True Wind Direction", "0x6D", 180.0, "180°T", "°T")
-        bridge.update_live_data("True Wind Speed (Knots)", "0x55", 12.0, "12.0", None)
+        update_live_data("True Wind Direction", "0x6D", 180.0, "180°T", "°T")
+        update_live_data("True Wind Speed (Knots)", "0x55", 12.0, "12.0", None)
         frames = bridge.process_twd()
         self.assertIsNotNone(frames)
         self.assertEqual(
@@ -240,7 +257,7 @@ class TestBearingReference(unittest.TestCase):
         )
 
     def test_twd_bad_layout_skips_frame(self):
-        bridge.update_live_data("True Wind Direction", "0x6D", 180.0, "180", "?")
+        update_live_data("True Wind Direction", "0x6D", 180.0, "180", "?")
         with self.assertLogs("fastnet2ip.handlers.nmea2000", level="ERROR"):
             frames = bridge.process_twd()
         self.assertIsNone(frames)
@@ -249,28 +266,28 @@ class TestBearingReference(unittest.TestCase):
         self.assertIsNone(bridge.process_twd())
 
     def test_set_drift_encodes_magnetic_reference(self):
-        bridge.update_live_data("Tidal Set",   "0x84", 45.0, "45°M", "°M")
-        bridge.update_live_data("Tidal Drift", "0x83", 0.5,  "0.5",  "?")
+        update_live_data("Tidal Set",   "0x84", 45.0, "45°M", "°M")
+        update_live_data("Tidal Drift", "0x83", 0.5,  "0.5",  "?")
         frames = bridge.process_set_drift()
         self.assertIsNotNone(frames)
         self.assertEqual(self._decode_field(frames, 129291, "setReference"), "Magnetic")
 
     def test_set_drift_encodes_true_reference(self):
-        bridge.update_live_data("Tidal Set",   "0x84", 45.0, "45°T", "°T")
-        bridge.update_live_data("Tidal Drift", "0x83", 0.5,  "0.5",  "?")
+        update_live_data("Tidal Set",   "0x84", 45.0, "45°T", "°T")
+        update_live_data("Tidal Drift", "0x83", 0.5,  "0.5",  "?")
         frames = bridge.process_set_drift()
         self.assertIsNotNone(frames)
         self.assertEqual(self._decode_field(frames, 129291, "setReference"), "True")
 
     def test_set_drift_bad_layout_skips_frame(self):
-        bridge.update_live_data("Tidal Set",   "0x84", 45.0, "45", "?")
-        bridge.update_live_data("Tidal Drift", "0x83", 0.5,  "0.5", "?")
+        update_live_data("Tidal Set",   "0x84", 45.0, "45", "?")
+        update_live_data("Tidal Drift", "0x83", 0.5,  "0.5", "?")
         with self.assertLogs("fastnet2ip.handlers.nmea2000", level="ERROR"):
             frames = bridge.process_set_drift()
         self.assertIsNone(frames)
 
     def test_set_drift_tidal_set_absent_skips_silently(self):
-        bridge.update_live_data("Tidal Drift", "0x83", 0.5, "0.5", "?")
+        update_live_data("Tidal Drift", "0x83", 0.5, "0.5", "?")
         self.assertIsNone(bridge.process_set_drift())
 
 

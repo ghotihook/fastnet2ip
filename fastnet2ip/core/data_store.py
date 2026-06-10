@@ -1,19 +1,17 @@
-import threading
 from datetime import datetime, timezone
 
+# Single-threaded access only: written and read from the main run loop.
 live_data: dict = {}
-live_data_lock = threading.Lock()
 
 
 def update_live_data(channel_name, channel_id, value, display_text, layout):
-    with live_data_lock:
-        live_data[channel_name] = {
-            "channel_id":   channel_id,
-            "value":        value,
-            "display_text": display_text,
-            "layout":       layout,
-            "timestamp":    datetime.now(timezone.utc),
-        }
+    live_data[channel_name] = {
+        "channel_id":   channel_id,
+        "value":        value,
+        "display_text": display_text,
+        "layout":       layout,
+        "timestamp":    datetime.now(timezone.utc),
+    }
 
 
 def get_live_data(name, as_string=False):

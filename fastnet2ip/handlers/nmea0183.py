@@ -8,6 +8,7 @@ from fastnet2ip.core.data_store import live_data, get_live_data, get_live_layout
 from fastnet2ip.handlers.base import OutputHandler
 
 REBROADCAST_AGE = 5
+MIN_SEND_INTERVAL = 0.05
 DEFAULT_UDP_PORT = 2002
 DEFAULT_HOST = "255.255.255.255"
 
@@ -22,7 +23,7 @@ def _checksum(sentence):
 
 
 def _sentence(body):
-    return f"${body}*{_checksum(body)}\n"
+    return f"${body}*{_checksum(body)}\r\n"
 
 
 # ── Process functions ─────────────────────────────────────────────────────────
@@ -32,6 +33,7 @@ def process_vhw():
     bs = get_live_data("Boatspeed (Knots)")
     hdg_layout = get_live_layout("Heading")
     bs_str = f"{bs:.1f}" if bs is not None else ""
+    bs_kmh_str = f"{bs * 1.852:.1f}" if bs is not None else ""
     hdg_true_str, hdg_mag_str = "", ""
     if hdg is not None:
         if hdg_layout == "°M":
@@ -44,7 +46,8 @@ def process_vhw():
         f"IIVHW,"
         f"{hdg_true_str},{'T' if hdg_true_str else ''},"
         f"{hdg_mag_str},{'M' if hdg_mag_str else ''},"
-        f"{bs_str},N,,"
+        f"{bs_str},{'N' if bs_str else ''},"
+        f"{bs_kmh_str},{'K' if bs_kmh_str else ''}"
     )
     return _sentence(body)
 
@@ -152,8 +155,7 @@ def process_mda():
         ",,"
         ",,"
     )
-    cs = _checksum(body)
-    return f"${body}*{cs}\r\n"
+    return _sentence(body)
 
 
 def process_hdm():
@@ -228,7 +230,7 @@ def process_xdr_raw_wind_angle():
 def process_xdr_raw_wind_speed():
     rws = get_live_data("Apparent Wind Speed (Raw)")
     rws_str = f"{rws:.2f}" if rws is not None else ""
-    return _sentence(f"IIXDR,N,{rws_str},V,RAW_WIND_S")
+    return _sentence(f"IIXDR,G,{rws_str},,RAW_WIND_S")
 
 
 def process_vdr():
@@ -249,14 +251,13 @@ def process_vdr():
         + fmt(deg_magnetic, "{:.1f}", "M")
         + fmt(speed_knots, "{:.2f}", "N")
     )
-    cs = _checksum(body)
-    return f"${body}*{cs}\r\n"
+    return _sentence(body)
 
 
 def process_xdr_raw_bsp():
     raw = get_live_data("Boatspeed (Raw)")
     raw_str = f"{raw:.2f}" if raw is not None else ""
-    return _sentence(f"IIXDR,N,{raw_str},V,RAW_BSP")
+    return _sentence(f"IIXDR,G,{raw_str},,RAW_BSP")
 
 
 def process_xdr_roll():
@@ -351,9 +352,12 @@ class NMEA0183Handler(OutputHandler):
         else:
             old_comparable = None
 
+        now = datetime.now(timezone.utc)
         last_sent = self._last_sent.get(channel_name)
+        if last_sent is not None and (now - last_sent) < timedelta(seconds=MIN_SEND_INTERVAL):
+            return
         age_exceeded = last_sent is None or (
-            datetime.now(timezone.utc) - last_sent > timedelta(seconds=REBROADCAST_AGE)
+            now - last_sent > timedelta(seconds=REBROADCAST_AGE)
         )
 
         if (new_comparable != old_comparable) or age_exceeded:
@@ -361,7 +365,7 @@ class NMEA0183Handler(OutputHandler):
             if message:
                 try:
                     udp_socket.sendto(message.encode(), (self._host, self._port))
-                    self._last_sent[channel_name] = datetime.now(timezone.utc)
+                    self._last_sent[channel_name] = now
                     logger.debug(f"NMEA0183: {message.strip()}")
                 except socket.error as e:
                     logger.error(f"Failed to send message: {e}")

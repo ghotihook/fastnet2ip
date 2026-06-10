@@ -3,23 +3,18 @@
 import argparse
 import logging
 import math
-import queue
 import socket
 import struct
 import time
 from collections.abc import Callable
 from datetime import datetime, timezone
 
-import serial
 from nmea2000 import pgns as n2k_pgns
 from nmea2000.encoder import NMEA2000Encoder
 from nmea2000.input_formats import N2KFormat
 import nmea2000.encoder_formats  # registers format handlers
 
-from fastnet_decoder import set_log_level
-
-from fastnet2ip.core.data_store import live_data, update_live_data, get_live_data, get_live_display
-from fastnet2ip.core.input import initialize_input_source, read_input_source
+from fastnet2ip.core.data_store import live_data, get_live_data, get_live_display
 from fastnet2ip.handlers.base import OutputHandler
 
 logger = logging.getLogger("fastnet2ip.handlers.nmea2000")
@@ -120,7 +115,7 @@ _n2k_formatter = _fmt_ydwg
 
 def _next_sid() -> int:
     global _sid
-    _sid = (_sid + 1) % 252
+    _sid = (_sid + 1) % 253
     return _sid
 
 
@@ -526,67 +521,6 @@ def trigger_n2k_frame(channel_name: str) -> list[str] | None:
     else:
         return entry()
     return None
-
-
-def process_frame_queue(fq, udp_socket, host, n2k_port):
-    """Process a frame queue directly — used by tests and the legacy _run path."""
-    now = time.monotonic()
-    while True:
-        try:
-            frame = fq.get_nowait()
-        except queue.Empty:
-            break
-        if not frame:
-            continue
-        for channel_name, channel_data in frame.get("values", {}).items():
-            if not channel_data:
-                continue
-            if channel_name in _ignored_channels:
-                continue
-            channel_id   = channel_data.get("channel_id", "??")
-            value        = channel_data.get("value")
-            display_text = channel_data.get("display_text", "")
-            layout       = channel_data.get("layout")
-
-            old_entry = live_data.get(channel_name)
-            old_key   = (old_entry["value"], old_entry["display_text"]) if old_entry else (None, None)
-
-            update_live_data(channel_name, channel_id, value, display_text, layout)
-
-            last_sent = _channel_last_sent.get(channel_name)
-            if last_sent is not None:
-                if (now - last_sent) < MIN_SEND_INTERVAL:
-                    continue
-                if ((value, display_text) == old_key) and (now - last_sent) < REBROADCAST_AGE:
-                    continue
-
-            _channel_last_sent[channel_name] = now
-
-            frames = trigger_n2k_frame(channel_name)
-            if frames:
-                for msg in frames:
-                    try:
-                        udp_socket.sendto(msg.encode(), (host, n2k_port))
-                        logger.debug(f"N2K:{_pgn_label(msg)} {msg.strip()}")
-                    except socket.error as e:
-                        logger.error(f"N2K send error: {e}")
-
-
-def _run(input_source, is_file, udp_socket, host, n2k_port, show_live_data, fb):
-    """Self-contained run loop — used by tests."""
-    from fastnet2ip.core.display import print_live_data
-    last_print = time.monotonic()
-    while True:
-        data = read_input_source(input_source, is_file)
-        if data:
-            fb.add_to_buffer(data)
-            fb.get_complete_frames()
-            process_frame_queue(fb.frame_queue, udp_socket, host, n2k_port)
-        if show_live_data and time.monotonic() - last_print >= 1:
-            print_live_data(fb)
-            last_print = time.monotonic()
-        if is_file and data is None:
-            break
 
 
 # ── Handler class ─────────────────────────────────────────────────────────────
