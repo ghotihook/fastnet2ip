@@ -84,7 +84,27 @@ def main():
 
     handler_class = _HANDLERS[pre_args.output]
 
-    parser = argparse.ArgumentParser(description="FastNet Protocol Decoder")
+    parser = argparse.ArgumentParser(
+        description="FastNet Protocol Decoder",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""\
+examples:
+  # NMEA 0183 from a serial port, broadcast on UDP 2002
+  fastnet2ip --serial /dev/ttyUSB0 --output nmea0183
+
+  # NMEA 2000 from a serial port, broadcast on UDP 2000
+  fastnet2ip --serial /dev/ttyUSB0 --output nmea2000
+
+  # Show the live channel table while running
+  fastnet2ip --serial /dev/ttyUSB0 --live-data
+
+  # Replay a recorded capture instead of reading the serial port
+  fastnet2ip --file capture.txt --output nmea0183 --live-data
+
+  # Suppress GPS/heading already present on the network (avoid feedback loops)
+  fastnet2ip --serial /dev/ttyUSB0 --ignore-gps --ignore-heading
+""",
+    )
     parser.add_argument(
         "--output", default="nmea0183", choices=list(_HANDLERS),
         help="Output format (default: nmea0183)",
