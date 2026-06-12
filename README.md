@@ -1,6 +1,6 @@
 # fastnet2ip
 
-Fastnet is the proprietary serial protocol used by B&G on older instruments (tested on Hydra/H2000). This application reads raw Fastnet data from a serial port, decodes it using [pyfastnet](https://github.com/ghotihook/pyfastnet), and broadcasts it over UDP in your choice of output format:
+Fastnet is the proprietary serial protocol used by B&G on older instruments (tested on Hydra/H2000). `fastnet2ip` reads raw Fastnet data from a serial port, decodes it using [pyfastnet](https://github.com/ghotihook/pyfastnet), and broadcasts it over UDP in your choice of output format:
 
 | Output | Flag | Default port | Use with |
 |---|---|---|---|
@@ -8,6 +8,47 @@ Fastnet is the proprietary serial protocol used by B&G on older instruments (tes
 | NMEA 2000 | `--output nmea2000` | 2000 | Actisense, Yacht Devices, Signal K server (via UDP) |
 
 `--output nmea0183` is the default.
+
+
+## Installation
+
+`fastnet2ip` is a Python application (requires **Python 3.10+**). The easiest way to install it as a self-contained command is [pipx](https://pipx.pypa.io/):
+
+```bash
+pipx install fastnet2ip
+```
+
+This puts a `fastnet2ip` command on your PATH in an isolated environment. To upgrade later:
+
+```bash
+pipx upgrade fastnet2ip
+```
+
+<details>
+<summary>Alternative: install with pip into a virtual environment</summary>
+
+```bash
+python3 -m venv ~/fastnet2ip-venv
+source ~/fastnet2ip-venv/bin/activate
+pip install fastnet2ip
+```
+
+Upgrade with `pip install --upgrade fastnet2ip`.
+</details>
+
+<details>
+<summary>Alternative: install from source (for development)</summary>
+
+```bash
+git clone https://github.com/ghotihook/fastnet2ip
+cd fastnet2ip
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[test]"
+```
+
+This installs the package in editable mode along with the test dependencies.
+</details>
 
 
 ## Hardware
@@ -34,59 +75,30 @@ Fastnet uses two-wire differential transmission. RS-485 adapters work well; the 
 **Serial settings**: 28,800 baud, 8 data bits, odd parity, 2 stop bits
 
 
-## Installation
-
-```bash
-python3 -m venv --system-site-packages ~/python_environment
-source ~/python_environment/bin/activate
-cd ~
-git clone https://github.com/ghotihook/fastnet2ip
-cd fastnet2ip
-pip3 install -r requirements.txt
-```
-
-## Upgrading
-
-```bash
-source ~/python_environment/bin/activate
-cd ~/fastnet2ip
-git pull origin main
-pip3 install -r requirements.txt --upgrade
-```
-
-
 ## Running
+
+Once installed, run the `fastnet2ip` command directly.
 
 **Live data from serial port**
 
 ```bash
-python3 -m fastnet2ip --serial /dev/ttyUSB0 --output nmea0183 --live-data
-python3 -m fastnet2ip --serial /dev/ttyUSB0 --output nmea2000 --live-data
+fastnet2ip --serial /dev/ttyUSB0 --output nmea0183 --live-data
+fastnet2ip --serial /dev/ttyUSB0 --output nmea2000 --live-data
 ```
 
 **From a recorded hex file (testing)**
 
 ```bash
-python3 -m fastnet2ip --file tests/data/example1_fastnet_data.txt --output nmea0183 --live-data
+fastnet2ip --file example1_fastnet_data.txt --output nmea0183 --live-data
 ```
+
+Sample recordings live in `tests/data/` in the source repository.
 
 **Console output — `--live-data` flag**
 
 ![Example console output](images/console_output.jpg "Fastnet live data console")
 
-
-## Systemd Service
-
-A `fastnet2ip.service` file is provided with both output modes — uncomment the `ExecStart` line for the one you want.
-
-> **Note:** Update `BindsTo=`, `After=`, `WorkingDirectory=`, and the active `ExecStart=` to match your serial port and installation path.
-
-```bash
-sudo cp fastnet2ip.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable fastnet2ip
-sudo systemctl start fastnet2ip
-```
+> The application can also be invoked as a module: `python3 -m fastnet2ip ...`. This is equivalent to the `fastnet2ip` command.
 
 
 ## Command-line arguments
@@ -101,6 +113,7 @@ sudo systemctl start fastnet2ip
 | `--log-level LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `--live-data` | off | Print live channel table to console once per second |
 | `--ignore-gps` | off | Suppress GPS channels — see below |
+| `--ignore-heading` | off | Suppress heading channels — see below |
 | `--host ADDR` | `255.255.255.255` | UDP destination host |
 | `--udp-port N` | `2002` / `2000` | UDP port (default depends on output mode) |
 
@@ -113,11 +126,13 @@ sudo systemctl start fastnet2ip
 | `--n2k-format FMT` | `ydwg` | Wire format: `ydwg` or `pcdin` (see below) |
 
 
-## GPS and `--ignore-gps`
+## Avoiding feedback loops: `--ignore-gps` and `--ignore-heading`
 
-Most B&G systems receive GPS input from an external source (chartplotter, dedicated GPS receiver) and pass it through onto the Fastnet bus alongside the instrument data. If you are also connecting that same GPS source directly to your network, re-broadcasting the GPS data from this bridge creates a **feedback loop** — the chartplotter sees the same position arriving twice, which can cause jumps, conflicts, or incorrect averaging depending on the software.
+Most B&G systems receive GPS (and sometimes heading) from an external source and pass it through onto the Fastnet bus alongside the instrument data. If you also connect that same source directly to your network, re-broadcasting it from this bridge creates a **feedback loop** — downstream software sees the same data arriving twice, which can cause jumps, conflicts, or incorrect averaging.
 
-`--ignore-gps` works with both `--output nmea0183` and `--output nmea2000` and suppresses the following Fastnet channels:
+Use `--ignore-gps` and/or `--ignore-heading` when that source is **already** on your network. Both flags work with `--output nmea0183` and `--output nmea2000`.
+
+`--ignore-gps` suppresses:
 
 | Fastnet channel | NMEA 0183 | NMEA 2000 |
 |---|---|---|
@@ -126,7 +141,14 @@ Most B&G systems receive GPS input from an external source (chartplotter, dedica
 | Course Over Ground (True) | VTG | PGN 129026 |
 | Course Over Ground (Mag) | VTG | PGN 129026 |
 
-If the bridge is the **only** GPS source on your network, omit this flag.
+`--ignore-heading` suppresses:
+
+| Fastnet channel | NMEA 0183 | NMEA 2000 |
+|---|---|---|
+| Heading | HDM / HDT | PGN 127250 |
+| Heading (Raw) | — | PGN 65281 |
+
+If the bridge is the **only** source of that data on your network, omit these flags.
 
 
 ## NMEA 0183 Output
@@ -190,7 +212,80 @@ XDR transducers:
 - `pcdin` — PCDIN sentences for Signal K server UDP input: `$PCDIN,PPPPPP,TTTTTTTT,SS,DDDD...*CC`
 
 
-## Bench Testing Tools
+## Running as a systemd service
+
+For an always-on bridge (e.g. a Raspberry Pi), run `fastnet2ip` under systemd so it starts on boot and restarts on failure.
+
+> **Don't use the pipx install for the service.** pipx installs into a *user's* `~/.local/bin`, which a root-run service can't rely on. For a service, install into a dedicated system virtual environment instead.
+
+**1. Install into a dedicated venv**
+
+```bash
+sudo python3 -m venv /opt/fastnet2ip
+sudo /opt/fastnet2ip/bin/pip install fastnet2ip
+```
+
+This gives you `/opt/fastnet2ip/bin/fastnet2ip`, the path the service below uses.
+
+**2. Create the unit file**
+
+Paste the following into `/etc/systemd/system/fastnet2ip.service` (e.g. `sudo nano /etc/systemd/system/fastnet2ip.service`). The same template ships as `fastnet2ip.service` in the source repository if you'd rather copy it.
+
+```ini
+[Unit]
+Description=fastnet2ip Service
+####################################### CHANGE THIS IF PORT CHANGES
+After=dev-ttyUSB0.device
+BindsTo=dev-ttyUSB0.device
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/fastnet2ip
+# Uncomment ONE ExecStart line for the output mode you want:
+# NMEA 2000 output:
+ExecStart=/opt/fastnet2ip/bin/fastnet2ip --output nmea2000 --serial /dev/ttyUSB0 --udp-port 2000 --n2k-format ydwg --n2k-src 201 --n2k-pri 4 --ignore-gps --log-level INFO
+# NMEA 0183 output:
+#ExecStart=/opt/fastnet2ip/bin/fastnet2ip --output nmea0183 --serial /dev/ttyUSB0 --udp-port 2002 --log-level INFO
+Restart=always
+RestartSec=10
+
+# === RESOURCE LIMITS ===
+OOMScoreAdjust=-700
+OOMPolicy=continue
+MemoryMax=128M
+MemoryHigh=96M
+TimeoutStopSec=30
+
+# === LOGGING ===
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fastnet2ip
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Before enabling, edit it to match your setup:**
+- `After=` / `BindsTo=` — your serial device, written in systemd's escaped form (`/dev/ttyUSB0` → `dev-ttyUSB0.device`)
+- the active `ExecStart=` — pick **one** line (NMEA 0183 or NMEA 2000) and set the correct `--serial` port
+
+**3. Enable and start it**
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable fastnet2ip
+sudo systemctl start fastnet2ip
+sudo journalctl -u fastnet2ip -f      # follow the logs
+```
+
+To upgrade later: `sudo /opt/fastnet2ip/bin/pip install --upgrade fastnet2ip && sudo systemctl restart fastnet2ip`.
+
+
+## Bench testing tools
+
+Two helper scripts for capturing and replaying Fastnet data live in the `tools/` directory of the source repository (they are not installed by pip/pipx — clone the repo to use them):
 
 **Record raw Fastnet data to file**
 
@@ -204,10 +299,10 @@ python3 tools/record_fn.py --port /dev/ttyUSB0 --output my_capture.txt
 python3 tools/playback_fn.py --port /dev/ttyUSB1 --input my_capture.txt
 ```
 
-Recordings can also be replayed through the main app with `--file`.
+Recordings can also be replayed through the main app with `fastnet2ip --file my_capture.txt`.
 
 
-## How It Works
+## How it works
 
 ```
 Serial port / hex file
@@ -235,8 +330,32 @@ To add a new output format, implement `OutputHandler` in `fastnet2ip/handlers/` 
 [pyfastnet](https://github.com/ghotihook/pyfastnet) handles the protocol layer: frame sync, checksums, and decoding raw bytes into named instrument channels. This app handles everything above that: reading the serial port, maintaining a live data store, mapping channels to output sentences/frames, rate limiting, and UDP broadcast.
 
 
+## Development
+
+```bash
+git clone https://github.com/ghotihook/fastnet2ip
+cd fastnet2ip
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[test]"
+pytest
+```
+
+To build distributable artifacts:
+
+```bash
+pip install build
+python -m build        # writes sdist + wheel to dist/
+```
+
+
 ## Acknowledgments
 
 - [trlafleur](https://github.com/trlafleur) — collected significant background research
 - [Oppedijk](https://www.oppedijk.com/bandg/fastnet.html) — protocol background
 - [timmathews](https://github.com/timmathews/bg-fastnet-driver) — substantial C++ implementation
+
+
+## License
+
+MIT — see [LICENSE](LICENSE).
