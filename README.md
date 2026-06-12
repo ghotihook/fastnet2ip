@@ -349,6 +349,40 @@ python -m build        # writes sdist + wheel to dist/
 ```
 
 
+## Releasing to PyPI
+
+The version is defined in a single place — `__version__` in `fastnet2ip/__init__.py` — which `pyproject.toml` reads automatically.
+
+**1. Bump the version** in `fastnet2ip/__init__.py` following [semver](https://semver.org/):
+
+| Change | Example | When |
+|---|---|---|
+| patch | `1.0.0` → `1.0.1` | bug fixes, no behaviour change |
+| minor | `1.0.0` → `1.1.0` | new backward-compatible feature (e.g. a new flag) |
+| major | `1.0.0` → `2.0.0` | breaking change (removed/renamed flags, changed defaults) |
+
+**2. Rebuild clean and validate** (stale files in `dist/` would otherwise be uploaded):
+
+```bash
+rm -rf dist build *.egg-info
+python -m build
+twine check dist/*
+```
+
+**3. Tag and upload:**
+
+```bash
+git commit -am "Release X.Y.Z"
+git tag vX.Y.Z
+git push origin main --tags
+twine upload dist/*          # needs a PyPI account + API token in ~/.pypirc
+```
+
+**4. Users upgrade with** `pipx upgrade fastnet2ip` (or `pip install --upgrade fastnet2ip`).
+
+> **PyPI never lets you re-upload an existing version** — even a deleted or "yanked" one. If a release has a bug, bump to the next patch version and re-publish; you can never overwrite a number that's already live.
+
+
 ## Acknowledgments
 
 - [trlafleur](https://github.com/trlafleur) — collected significant background research
