@@ -1,89 +1,60 @@
 #!/usr/bin/env python3
+"""Play back a recorded Fastnet hex file to a serial port."""
 import argparse
-import subprocess
-import serial
 import sys
 
-# Configuration Constants
-SERIAL_PORT = "/dev/ttyAMA0"        # Default serial port
-BAUDRATE = 28800                    # Fastnet baudrate
+import serial
+
+BAUDRATE  = 28800
 BYTE_SIZE = serial.EIGHTBITS
 STOP_BITS = serial.STOPBITS_TWO
-PARITY = serial.PARITY_ODD
-TIMEOUT = 0.01                       # Serial timeout in seconds
-INPUT_FILE = "fastnet_record.txt"   # Input file name containing hex data
-CHUNK_SIZE = 256  # Set the max bytes per write
+PARITY    = serial.PARITY_ODD
+CHUNK     = 256
 
 
-# Reset Serial Port
-def reset_serial_port_with_stty(port):
-    try:
-        subprocess.run(['stty', '-F', port, 'sane'], check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"[ERROR] Failed to reset serial port {port}: {e}")
-
-def playback_file_to_serial(port=SERIAL_PORT, baudrate=BAUDRATE, timeout=TIMEOUT, input_file=INPUT_FILE):
-    """
-    Reads data from a file and writes it to the Fastnet serial port.
-    Displays the total number of bytes sent on the screen.
-    """
-    try:
-        # Initialize serial port
-        ser = serial.Serial(
-            port=port,
-            baudrate=baudrate,
-            bytesize=BYTE_SIZE,
-            parity=PARITY,
-            stopbits=STOP_BITS,
-            timeout=timeout
-        )
-        print(f"[INFO] Serial port {port} opened successfully.")
-        print(f"[INFO] Playing back data from '{input_file}'. Press Ctrl+C to stop.")
-
-        # Open the input file in read mode
-        with open(input_file, 'r') as f:
-            total_bytes = 0  # Counter for total bytes sent
-
-            for line in f:
-                try:
-                    line = line.strip()  # Remove newline and whitespace
-                    if line:
-                        data = bytes.fromhex(line)  # Convert hex string to bytes
-
-                        # Send data in chunks
-                        for i in range(0, len(data), CHUNK_SIZE):
-                            chunk = data[i:i + CHUNK_SIZE]  # Extract chunk
-                            ser.write(chunk)  # Write chunk to serial port
-
-                            # Update and display the total bytes sent
-                            total_bytes += len(chunk)
-                            print(f"\r[DEBUG] Total bytes sent: {total_bytes}", end='', flush=True)
-
-                except ValueError as e:
-                    print(f"\n[ERROR] Invalid hex data in file: {e}")
-                    continue
-                except serial.SerialException as e:
-                    print(f"\n[ERROR] Serial exception: {e}")
-                    break
-    except FileNotFoundError as e:
-        print(f"[ERROR] Input file not found: {e}")
-        sys.exit(1)
-    except serial.SerialException as e:
-        print(f"[ERROR] Could not open serial port {port}: {e}")
-        sys.exit(1)
-    except KeyboardInterrupt:
-        print("\n[INFO] Playback terminated by user.")
-    finally:
-        if 'ser' in locals() and ser.is_open:
-            ser.close()
-            print("[INFO] Serial port closed.")
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Playback Fastnet data from file to serial port.")
-    parser.add_argument("--port", default=SERIAL_PORT, help=f"Serial port (default: {SERIAL_PORT})")
-    parser.add_argument("--baud", type=int, default=BAUDRATE, help=f"Baud rate (default: {BAUDRATE})")
-    parser.add_argument("--input", default=INPUT_FILE, dest="input_file", help=f"Input file containing hex data (default: {INPUT_FILE})")
+def main():
+    parser = argparse.ArgumentParser(description="Play back a Fastnet hex recording to a serial port.")
+    parser.add_argument("--port",  default="/dev/ttyAMA0",      help="Serial port (default: /dev/ttyAMA0)")
+    parser.add_argument("--input", default="fastnet_record.txt", help="Hex file to play back (default: fastnet_record.txt)")
     args = parser.parse_args()
 
-    reset_serial_port_with_stty(args.port)
-    playback_file_to_serial(port=args.port, baudrate=args.baud, input_file=args.input_file)
+    try:
+        ser = serial.Serial(
+            port=args.port, baudrate=BAUDRATE, bytesize=BYTE_SIZE,
+            parity=PARITY, stopbits=STOP_BITS, timeout=0.01,
+        )
+    except serial.SerialException as e:
+        print(f"Cannot open {args.port}: {e}")
+        sys.exit(1)
+
+    try:
+        with open(args.input) as f:
+            lines = [l.strip() for l in f if l.strip()]
+    except FileNotFoundError:
+        print(f"File not found: {args.input}")
+        sys.exit(1)
+
+    print(f"Playing {args.input} → {args.port}  (Ctrl+C to stop)")
+    total = 0
+    try:
+        for line in lines:
+            try:
+                data = bytes.fromhex(line)
+            except ValueError:
+                print(f"\nSkipping invalid hex line: {line[:40]!r}")
+                continue
+            for i in range(0, len(data), CHUNK):
+                ser.write(data[i:i + CHUNK])
+                total += len(data[i:i + CHUNK])
+                print(f"\r{total} bytes sent", end='', flush=True)
+        print(f"\nDone. {total} bytes sent.")
+    except KeyboardInterrupt:
+        print(f"\nStopped. {total} bytes sent.")
+    except serial.SerialException as e:
+        print(f"\nSerial error: {e}")
+    finally:
+        ser.close()
+
+
+if __name__ == "__main__":
+    main()

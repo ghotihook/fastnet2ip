@@ -1,31 +1,29 @@
-# service script for systemd
+# sudo cp fastnet2ip.service /etc/systemd/system/
+# sudo systemctl daemon-reload
+# sudo systemctl enable fastnet2ip
+# sudo systemctl start fastnet2ip
 #
-# 
-# sudo cp fastnet2ip.service /etc/systemd/system/fastnet2ip.service 
-# sudo systemctl status|cat fastnet2ip
-# sudo systemctl start|stop|restart fastnet2ip
-# sudo systemctl enable|disable fastnet2ip
-# sudo systemctl daemon-reload  (after editing this file)
-#
-#
+# sudo systemctl status fastnet2ip
+# sudo systemctl stop fastnet2ip
+# sudo systemctl restart fastnet2ip
+# journalctl -u fastnet2ip -f
 
 [Unit]
 Description=fastnet2ip Service
 ####################################### CHANGE THIS IF PORT CHANGES
-After=network-online.target dev-ttySTM3.device
-Wants=network-online.target
-####################################### CHANGE THIS IF PORT CHANGES
+After=dev-ttySTM3.device
 BindsTo=dev-ttySTM3.device
-StartLimitIntervalSec=300
-StartLimitBurst=5
-StartLimitAction=reboot
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/home/alex060/fastnet2ip
-####################################### CHANGE THIS PATH AND THE PORT
-ExecStart=/home/alex060/python_environment/bin/python3 /home/alex060/fastnet2ip/fastnet2ip.py --serial /dev/ttySTM3 --udp-port 2002 --log-level INFO
+####################################### CHANGE THIS PATH to your install
+# Recommended: a dedicated venv, e.g.  python3 -m venv /opt/fastnet2ip && /opt/fastnet2ip/bin/pip install fastnet2ip
+WorkingDirectory=/opt/fastnet2ip
+# NMEA 2000 output (uncomment one ExecStart only):
+ExecStart=/opt/fastnet2ip/bin/fastnet2ip --output nmea2000 --serial /dev/ttySTM3 --udp-port 2000 --n2k-format ydwg --n2k-src 201 --n2k-pri 4 --ignore-gps --log-level INFO
+# NMEA 0183 output:
+#ExecStart=/opt/fastnet2ip/bin/fastnet2ip --output nmea0183 --serial /dev/ttySTM3 --udp-port 2002 --log-level INFO
 Restart=always
 RestartSec=10
 

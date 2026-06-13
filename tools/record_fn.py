@@ -1,89 +1,54 @@
 #!/usr/bin/env python3
+"""Record raw Fastnet data from a serial port to a hex file."""
 import argparse
-import subprocess
-import serial
 import sys
 import time
+from datetime import datetime
 
-# Configuration Constants
-SERIAL_PORT = "/dev/ttyAMA0"        # Default serial port
-BAUDRATE = 28800                    # Fastnet baudrate
+import serial
+
+BAUDRATE  = 28800
 BYTE_SIZE = serial.EIGHTBITS
 STOP_BITS = serial.STOPBITS_TWO
-PARITY = serial.PARITY_ODD
-TIMEOUT = 0.01                       # Serial read timeout in seconds
-BUFFER_SIZE = 256                   # Number of bytes to read per serial read
-OUTPUT_FILE = "fastnet_record.txt"  # Output file name
+PARITY    = serial.PARITY_ODD
+READ_SIZE = 256
 
 
-# Reset Serial Port
-def reset_serial_port_with_stty(port):
-    try:
-        subprocess.run(['stty', '-F', port, 'sane'], check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"[ERROR] Failed to reset serial port {port}: {e}")
+def main():
+    default_output = f"rawfn-{datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
 
-def listen_and_record(port=SERIAL_PORT, baudrate=BAUDRATE, timeout=TIMEOUT, output_file=OUTPUT_FILE):
-    """
-    Listens to the Fastnet serial port and records all incoming data to a text file.
-    Displays the total number of bytes received on the screen.
-    """
-    try:
-        # Initialize serial port
-        ser = serial.Serial(
-            port=port,
-            baudrate=baudrate,
-            bytesize=BYTE_SIZE,
-            parity=PARITY,
-            stopbits=STOP_BITS,
-            timeout=timeout
-        )
-        print(f"[INFO] Serial port {port} opened successfully.")
-        print(f"[INFO] Recording data to '{output_file}'. Press Ctrl+C to stop.")
-        
-        # Open the output file in append mode
-        with open(output_file, 'a') as f:
-            total_bytes = 0  # Counter for total bytes received
-
-            while True:
-                try:
-                    # Read data from serial port
-                    data = ser.read(BUFFER_SIZE)
-                    
-                    if data:
-                        # Write data to file in hexadecimal format
-                        hex_data = data.hex()
-                        f.write(hex_data + '\n')  # Each read separated by a newline for readability
-                        f.flush()  # Ensure data is written to disk immediately
-                        
-                        # Update and display the total bytes received
-                        bytes_received = len(data)
-                        total_bytes += bytes_received
-                        print(f"\r[DEBUG] Total bytes received: {total_bytes}", end='', flush=True)
-                    
-                except serial.SerialException as e:
-                    print(f"\n[ERROR] Serial exception: {e}")
-                    break
-                except Exception as e:
-                    print(f"\n[ERROR] Unexpected error: {e}")
-                    break
-
-    except serial.SerialException as e:
-        print(f"[ERROR] Could not open serial port {port}: {e}")
-        sys.exit(1)
-    except KeyboardInterrupt:
-        print("\n[INFO] Recording terminated by user.")
-    finally:
-        if 'ser' in locals() and ser.is_open:
-            ser.close()
-            print("[INFO] Serial port closed.")
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Record Fastnet data from serial port to file.")
-    parser.add_argument("--port", default=SERIAL_PORT, help=f"Serial port (default: {SERIAL_PORT})")
-    parser.add_argument("--baud", type=int, default=BAUDRATE, help=f"Baud rate (default: {BAUDRATE})")
-    parser.add_argument("--output", default=OUTPUT_FILE, dest="output_file", help=f"Output file to record hex data to (default: {OUTPUT_FILE})")
+    parser = argparse.ArgumentParser(description="Record Fastnet serial data to a hex file.")
+    parser.add_argument("--port",   default="/dev/ttyAMA0", help="Serial port (default: /dev/ttyAMA0)")
+    parser.add_argument("--output", default=default_output,  help=f"Output file (default: {default_output})")
     args = parser.parse_args()
 
-    reset_serial_port_with_stty(args.port)
-    listen_and_record(port=args.port, baudrate=args.baud, output_file=args.output_file)
+    try:
+        ser = serial.Serial(
+            port=args.port, baudrate=BAUDRATE, bytesize=BYTE_SIZE,
+            parity=PARITY, stopbits=STOP_BITS, timeout=0.01,
+        )
+    except serial.SerialException as e:
+        print(f"Cannot open {args.port}: {e}")
+        sys.exit(1)
+
+    print(f"Recording from {args.port} → {args.output}  (Ctrl+C to stop)")
+    total = 0
+    try:
+        with open(args.output, 'w') as f:
+            while True:
+                data = ser.read(READ_SIZE)
+                if data:
+                    f.write(data.hex() + '\n')
+                    f.flush()
+                    total += len(data)
+                    print(f"\r{total} bytes", end='', flush=True)
+    except KeyboardInterrupt:
+        print(f"\nStopped. {total} bytes written to {args.output}")
+    except serial.SerialException as e:
+        print(f"\nSerial error: {e}")
+    finally:
+        ser.close()
+
+
+if __name__ == "__main__":
+    main()
