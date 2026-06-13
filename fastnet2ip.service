@@ -21,7 +21,7 @@ User=root
 # Recommended: a dedicated venv, e.g.  python3 -m venv /opt/fastnet2ip && /opt/fastnet2ip/bin/pip install fastnet2ip
 WorkingDirectory=/opt/fastnet2ip
 # NMEA 2000 output (uncomment one ExecStart only):
-ExecStart=/opt/fastnet2ip/bin/fastnet2ip --output nmea2000 --serial /dev/ttySTM3 --udp-port 2000 --n2k-format ydwg --n2k-src 201 --n2k-pri 4 --ignore-gps --log-level INFO
+ExecStart=/opt/fastnet2ip/bin/fastnet2ip --output nmea2000 --serial /dev/ttySTM3 --udp-port 2000 --n2k-format ydwg --n2k-src 201 --n2k-pri 4 --log-level INFO
 # NMEA 0183 output:
 #ExecStart=/opt/fastnet2ip/bin/fastnet2ip --output nmea0183 --serial /dev/ttySTM3 --udp-port 2002 --log-level INFO
 Restart=always
