@@ -340,10 +340,23 @@ python3 tools/record_fn.py --port /dev/ttyUSB0 --output my_capture.txt
 
 # play a recording back to a serial port
 python3 tools/playback_fn.py --port /dev/ttyUSB1 --input my_capture.txt
+
+# play back at 4x wire speed
+python3 tools/playback_fn.py --port /dev/ttyUSB1 --input my_capture.txt --speed 4
 ```
 
+Playback is paced at the wire speed implied by the baud rate and framing
+(28800 baud, 8O2 = 12 bits/byte = 2400 bytes/s), so a capture takes about as long
+to replay as it did to record *while the bus was active*. Recordings carry no
+timestamps, so idle gaps on the original bus are not reproduced — a replay is
+therefore shorter than the original recording session, and is not a faithful
+reconstruction of real-world message timing. `--speed` scales the rate; values
+above 1.0 are capped by the hardware on a real serial port, but do take effect on
+a virtual port (pty/socat).
+
 Recordings can also be replayed through the main app with
-`fastnet2ip --file my_capture.txt`.
+`fastnet2ip --file my_capture.txt`. Note this uses a different, fixed pacing
+(256-byte chunks every 50 ms ≈ 5120 B/s) and is not wire-speed accurate.
 
 ## Development
 
