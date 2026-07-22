@@ -69,7 +69,7 @@ to end up:
 
 | Project | What it does | Use it when |
 |---|---|---|
-| [pyfastnet](https://github.com/ghotihook/pyfastnet) | **Decoder library.** Turns raw Fastnet bytes into named instrument channels. | You're writing your own Python and want the decoded data. |
+| [pyfastnet](https://github.com/ghotihook/pyfastnet) | **Decoder library.** Turns raw Fastnet bytes into Signal K paths in SI units. | You're writing your own Python and want the decoded data. |
 | **fastnet2ip** *(this app)* | **Serial → network.** Broadcasts decoded data over UDP as NMEA 0183 or NMEA 2000 (over IP). | Feeding Signal K, OpenCPN, or a plotter over WiFi / Ethernet. |
 | [fastnet2n2k](https://github.com/ghotihook/fastnet2n2k) | **Serial → physical NMEA 2000 bus.** Transmits PGNs onto a CAN backbone via SocketCAN. | Wiring into a real NMEA 2000 network / chartplotter. |
 
@@ -91,18 +91,19 @@ a **physical** NMEA 2000 CAN backbone rather than over the network, use
 For an always-on bridge (e.g. a Raspberry Pi), run `fastnet2ip` under systemd so
 it starts on boot and restarts on failure.
 
-> **Don't use the pipx install for the service.** pipx installs into a *user's*
-> `~/.local/bin`, which a root-run service can't rely on. Install into a dedicated
-> system virtual environment instead.
+> **Install it globally, not per-user.** A plain `pipx install` goes to a user's
+> `~/.local/bin`, which a root-run service can't rely on. Use `pipx install
+> --global` so the command lands in `/usr/local/bin`.
 
-**1. Install into a dedicated venv**
+**1. Install globally with pipx**
 
 ```bash
-sudo python3 -m venv /opt/fastnet2ip
-sudo /opt/fastnet2ip/bin/pip install fastnet2ip
+sudo apt install pipx                        # once, if you don't have it
+sudo pipx install --global fastnet2ip
 ```
 
-This gives you `/opt/fastnet2ip/bin/fastnet2ip`, the path the unit below uses.
+This gives you `/usr/local/bin/fastnet2ip`, the path the unit below uses.
+(`--global` needs pipx ≥ 1.5.)
 
 **2. Create the unit file**
 
@@ -120,12 +121,11 @@ BindsTo=dev-ttyUSB0.device
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/fastnet2ip
 # Uncomment ONE ExecStart line for the output mode you want:
 # NMEA 2000 output:
-ExecStart=/opt/fastnet2ip/bin/fastnet2ip --output nmea2000 --serial /dev/ttyUSB0 --udp-port 2000 --n2k-format ydwg --n2k-src 201 --n2k-pri 4 --ignore-gps --log-level INFO
+ExecStart=/usr/local/bin/fastnet2ip --output nmea2000 --serial /dev/ttyUSB0 --udp-port 2000 --n2k-format ydwg --n2k-src 201 --n2k-pri 4 --ignore-gps --log-level INFO
 # NMEA 0183 output:
-#ExecStart=/opt/fastnet2ip/bin/fastnet2ip --output nmea0183 --serial /dev/ttyUSB0 --udp-port 2002 --log-level INFO
+#ExecStart=/usr/local/bin/fastnet2ip --output nmea0183 --serial /dev/ttyUSB0 --udp-port 2002 --log-level INFO
 Restart=always
 RestartSec=10
 
@@ -162,7 +162,7 @@ sudo journalctl -u fastnet2ip -f      # follow the logs
 ```
 
 To upgrade later:
-`sudo /opt/fastnet2ip/bin/pip install --upgrade fastnet2ip && sudo systemctl restart fastnet2ip`.
+`sudo pipx upgrade --global fastnet2ip && sudo systemctl restart fastnet2ip`.
 
 ## Command-line options
 
