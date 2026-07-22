@@ -1,4 +1,9 @@
-"""FastNet → NMEA 2000 output handler."""
+"""FastNet (Signal K) → NMEA 2000 output handler.
+
+pyfastnet v3 emits {signalk_path: SI_value}, and NMEA 2000 is SI (radians, m/s,
+Kelvin, Pascals, metres), so values pass straight through — no conversion. T/M
+reference comes from the path; position arrives as an object.
+"""
 
 import argparse
 import logging
@@ -14,7 +19,7 @@ from nmea2000.encoder import NMEA2000Encoder
 from nmea2000.input_formats import N2KFormat
 import nmea2000.encoder_formats  # registers format handlers
 
-from fastnet2ip.core.data_store import live_data, get_live_data, get_live_display
+from fastnet2ip.core.data_store import live_data, get_live_data
 from fastnet2ip.handlers.base import OutputHandler
 
 logger = logging.getLogger("fastnet2ip.handlers.nmea2000")
@@ -30,19 +35,11 @@ N2K_PRI           = 4
 
 REBROADCAST_AGE   = 5
 MIN_SEND_INTERVAL = 0.05
-_KN_MS            = 0.514444
 
 _channel_last_sent: dict = {}
 _ignored_channels: set   = set()
 _sid = 0
 _hb_seq = 0
-
-_GPS_CHANNELS = frozenset({
-    "LatLon",
-    "Speed Over Ground",
-    "Course Over Ground (True)",
-    "Course Over Ground (Mag)",
-})
 
 _encoder = NMEA2000Encoder(N2KFormat.CAN_FRAME_ASCII)
 
@@ -63,9 +60,6 @@ _PGN_NAMES: dict[int, str] = {
     130306: "Wind Data",
     130312: "Temperature",
     130314: "Pressure",
-    65280:  "Proprietary: Raw Wind",
-    65281:  "Proprietary: Raw Heading",
-    65282:  "Proprietary: Raw Boatspeed",
 }
 
 
@@ -200,324 +194,231 @@ def _send_product_info(udp_socket, host, n2k_port):
     logger.info("Product information sent (PGN 126996)")
 
 
-# Proprietary PGN manufacturer header: B&G (code 381), Marine industry (code 4).
-_PROP_MFR_HDR = struct.pack('<H', (4 << 13) | 381)
-
-
-def _p_u16(val) -> int:
-    if val is None:
-        return 0xFFFF
-    return int(val) & 0xFFFF
-
-
-def _f_to_k(f: float) -> float:
-    return (f - 32) * 5 / 9 + 273.15
-
-
-# ── live_data access ──────────────────────────────────────────────────────────
-
-_LAYOUT_REFERENCE = {"°M": "Magnetic", "°T": "True"}
-_LAYOUT_WIND_REFERENCE = {
-    "°M": "Magnetic (ground referenced to Magnetic North)",
-    "°T": "True (ground referenced to North)",
-}
-
-
-def _bearing_reference(name) -> str | None:
-    entry = live_data.get(name)
-    if entry is None:
+def _wrap(angle):
+    """Normalise a radian angle into [0, 2π) for N2K angle fields."""
+    if angle is None:
         return None
-    ref = _LAYOUT_REFERENCE.get(entry["layout"])
-    if ref is None:
-        logger.error(f"{name}: unrecognised layout {entry['layout']!r}, skipping frame")
-    return ref
+    return angle % math.tau
 
 
-# ── Trigger functions ─────────────────────────────────────────────────────────
+# ── Trigger functions (SI pass-through) ───────────────────────────────────────
 
-def _process_wind(angle_ch, speed_ch, reference):
-    angle = get_live_data(angle_ch)
-    speed = get_live_data(speed_ch)
+def _process_wind(angle_path, speed_path, reference):
+    angle = get_live_data(angle_path)   # rad
+    speed = get_live_data(speed_path)   # m/s
     if angle is None and speed is None:
         return None
-    if angle is not None and angle < 0:
-        angle += 360
-    return _n2k(130306, sid=_next_sid(),
-                windSpeed=speed * _KN_MS if speed is not None else None,
-                windAngle=math.radians(angle) if angle is not None else None,
-                reference=reference)
+    return _n2k(130306, sid=_next_sid(), windSpeed=speed,
+                windAngle=_wrap(angle), reference=reference)
 
 
 def process_heading():
-    hdg = get_live_data("Heading")
-    if hdg is None:
+    mag = get_live_data("navigation.headingMagnetic")
+    tru = get_live_data("navigation.headingTrue")
+    if mag is not None:
+        heading, ref = mag, "Magnetic"
+    elif tru is not None:
+        heading, ref = tru, "True"
+    else:
         return None
-    ref = _bearing_reference("Heading")
-    if ref is None:
-        return None
-    return _n2k(127250, sid=_next_sid(), heading=math.radians(hdg),
+    return _n2k(127250, sid=_next_sid(), heading=_wrap(heading),
                 reference=ref, deviation=None, variation=None)
 
 
 def process_boatspeed():
-    bs = get_live_data("Boatspeed (Knots)")
+    bs = get_live_data("navigation.speedThroughWater")
     if bs is None:
         return None
-    return _n2k(128259, sid=_next_sid(), speedWaterReferenced=bs * _KN_MS,
+    return _n2k(128259, sid=_next_sid(), speedWaterReferenced=bs,
                 speedGroundReferenced=None, speedDirection=None)
 
 
 def process_depth():
-    dm = get_live_data("Depth (Meters)")
+    dm = get_live_data("environment.depth.belowTransducer")
     if dm is None:
         return None
     return _n2k(128267, sid=_next_sid(), depth=dm, offset=None, range=None)
 
 
 def process_rudder():
-    ra = get_live_data("Rudder Angle")
+    ra = get_live_data("steering.rudderAngle")
     if ra is None:
         return None
-    return _n2k(127245, position=math.radians(ra), angleOrder=None)
+    return _n2k(127245, position=ra, angleOrder=None)
 
 
 def process_apparent_wind():
-    return _process_wind("Apparent Wind Angle", "Apparent Wind Speed (Knots)", "Apparent")
+    return _process_wind("environment.wind.angleApparent",
+                         "environment.wind.speedApparent", "Apparent")
 
 
 def process_true_wind():
-    return _process_wind("True Wind Angle", "True Wind Speed (Knots)", "True (boat referenced)")
+    return _process_wind("environment.wind.angleTrueWater",
+                         "environment.wind.speedTrue", "True (boat referenced)")
 
 
 def process_twd():
-    entry = live_data.get("True Wind Direction")
-    if entry is None:
+    mag = get_live_data("environment.wind.directionMagnetic")
+    tru = get_live_data("environment.wind.directionTrue")
+    if mag is not None:
+        direction, ref = mag, "Magnetic (ground referenced to Magnetic North)"
+    elif tru is not None:
+        direction, ref = tru, "True (ground referenced to North)"
+    else:
         return None
-    ref = _LAYOUT_WIND_REFERENCE.get(entry["layout"])
-    if ref is None:
-        logger.error(f"True Wind Direction: unrecognised layout {entry['layout']!r}, skipping frame")
-        return None
-    return _process_wind("True Wind Direction", "True Wind Speed (Knots)", ref)
+    speed = get_live_data("environment.wind.speedTrue")
+    return _n2k(130306, sid=_next_sid(), windSpeed=speed,
+                windAngle=_wrap(direction), reference=ref)
 
 
 def process_cog_sog():
-    cog_true = get_live_data("Course Over Ground (True)")
-    cog_mag  = get_live_data("Course Over Ground (Mag)")
-    sog      = get_live_data("Speed Over Ground")
+    cog_true = get_live_data("navigation.courseOverGroundTrue")
+    cog_mag  = get_live_data("navigation.courseOverGroundMagnetic")
+    sog      = get_live_data("navigation.speedOverGround")
     if sog is None:
         return None
-    sog_ms = sog * _KN_MS
     if cog_true is not None:
         return _n2k(129026, sid=_next_sid(), cogReference="True",
-                    cog=math.radians(cog_true % 360), sog=sog_ms)
+                    cog=_wrap(cog_true), sog=sog)
     if cog_mag is not None:
         return _n2k(129026, sid=_next_sid(), cogReference="Magnetic",
-                    cog=math.radians(cog_mag % 360), sog=sog_ms)
-    return _n2k(129026, sid=_next_sid(), cog=None, sog=sog_ms)
+                    cog=_wrap(cog_mag), sog=sog)
+    return _n2k(129026, sid=_next_sid(), cog=None, sog=sog)
 
 
 def process_position():
-    latlon = get_live_display("LatLon")
-    if not latlon:
+    pos = get_live_data("navigation.position")
+    if not pos:
         return None
-    lat_idx = latlon.find('N') if 'N' in latlon else latlon.find('S')
-    lon_idx = latlon.find('E') if 'E' in latlon else latlon.find('W')
-    if lat_idx == -1 or lon_idx == -1:
-        return None
-    try:
-        lat_part = latlon[:lat_idx]
-        lat_dir  = latlon[lat_idx]
-        lon_part = latlon[lat_idx + 1:lon_idx]
-        lon_dir  = latlon[lon_idx]
-        lat = int(lat_part[:2]) + float(lat_part[2:]) / 60
-        lon = int(lon_part[:3]) + float(lon_part[3:]) / 60
-    except (ValueError, IndexError):
-        logger.debug(f"position: could not parse {latlon!r}")
-        return None
-    if lat_dir == 'S':
-        lat = -lat
-    if lon_dir == 'W':
-        lon = -lon
-    return _n2k(129025, latitude=lat, longitude=lon)
+    return _n2k(129025, latitude=pos["latitude"], longitude=pos["longitude"])
 
 
 def process_attitude():
-    roll  = get_live_data("Heel Angle")
-    pitch = get_live_data("Fore/Aft Trim")
+    roll  = get_live_data("navigation.attitude.roll")
+    pitch = get_live_data("navigation.attitude.pitch")
     if roll is None and pitch is None:
         return None
-    return _n2k(127257,
-                sid=_next_sid(),
-                roll=math.radians(roll) if roll is not None else None,
-                pitch=math.radians(pitch) if pitch is not None else None,
-                yaw=None)
+    return _n2k(127257, sid=_next_sid(), roll=roll, pitch=pitch, yaw=None)
 
 
 def process_pressure():
-    bp = get_live_data("Barometric Pressure")
+    bp = get_live_data("environment.outside.pressure")   # Pa
     if bp is None:
         return None
-    return _n2k(130314, sid=_next_sid(), pressure=bp * 100)
+    return _n2k(130314, sid=_next_sid(), pressure=bp)
 
 
 def process_sea_temp():
-    t = get_live_data("Sea Temperature (°C)")
-    if t is None:
+    k = get_live_data("environment.water.temperature")   # Kelvin
+    if k is None:
         return None
-    return _n2k(130312, sid=_next_sid(), actualTemperature=t + 273.15, setTemperature=None)
+    return _n2k(130312, sid=_next_sid(), actualTemperature=k, setTemperature=None)
 
 
 def process_air_temp():
-    t = get_live_data("Air Temperature (°C)")
-    if t is None:
+    k = get_live_data("environment.outside.temperature")   # Kelvin
+    if k is None:
         return None
     return _n2k(130312, sid=_next_sid(), source="Outside Temperature",
-                actualTemperature=t + 273.15, setTemperature=None)
+                actualTemperature=k, setTemperature=None)
 
 
 def process_battery():
-    v = get_live_data("Battery Volts")
+    v = get_live_data("electrical.batteries.house.voltage")
     if v is None:
         return None
     return _n2k(127508, sid=_next_sid(), voltage=v, current=None, temperature=None)
 
 
 def process_set_drift():
-    set_deg = get_live_data("Tidal Set")
-    drift   = get_live_data("Tidal Drift")
-    if set_deg is None and drift is None:
+    set_mag = get_live_data("environment.current.setMagnetic")
+    set_tru = get_live_data("environment.current.setTrue")
+    if set_mag is not None:
+        set_val, ref = set_mag, "Magnetic"
+    elif set_tru is not None:
+        set_val, ref = set_tru, "True"
+    else:
         return None
-    ref = _bearing_reference("Tidal Set")
-    if ref is None:
-        return None
-    return _n2k(129291, sid=_next_sid(), setReference=ref,
-                set=math.radians(set_deg % 360) if set_deg is not None else None,
-                drift=max(0.0, drift) * _KN_MS if drift is not None else None)
+    drift = get_live_data("environment.current.drift")
+    return _n2k(129291, sid=_next_sid(), setReference=ref, set=_wrap(set_val),
+                drift=max(0.0, drift) if drift is not None else None)
 
 
 def process_leeway():
-    lw = get_live_data("Leeway")
+    lw = get_live_data("navigation.leewayAngle")
     if lw is None:
         return None
-    return _n2k(128000, sid=_next_sid(), leewayAngle=math.radians(lw))
+    return _n2k(128000, sid=_next_sid(), leewayAngle=lw)
 
 
 def process_rate_of_turn():
-    yr = get_live_data("Yaw rate")
+    yr = get_live_data("navigation.rateOfTurn")
     if yr is None:
         return None
-    return _n2k(127251, sid=_next_sid(), rate=math.radians(yr))
+    return _n2k(127251, sid=_next_sid(), rate=yr)
 
 
 def process_distance_log():
-    stored = get_live_data("Stored Log (NM)")
-    trip   = get_live_data("Trip Log (NM)")
+    stored = get_live_data("navigation.log")        # m
+    trip   = get_live_data("navigation.trip.log")   # m
     if stored is None and trip is None:
         return None
     now = datetime.now(timezone.utc)
-    return _n2k(128275,
-                date=now.date(), time=now.time(),
-                log=stored * 1852 if stored is not None else None,
-                tripLog=trip * 1852 if trip is not None else None)
+    return _n2k(128275, date=now.date(), time=now.time(),
+                log=int(stored) if stored is not None else None,
+                tripLog=int(trip) if trip is not None else None)
 
 
 def process_xte():
-    xte = get_live_data("Cross Track Error")
+    xte = get_live_data("navigation.courseGreatCircle.crossTrackError")   # m
     if xte is None:
         return None
-    return _n2k(129283, sid=_next_sid(), xte=xte * 1852)
-
-
-def process_sea_temp_f():
-    if get_live_data("Sea Temperature (°C)") is not None:
-        return None
-    t_f = get_live_data("Sea Temperature (°F)")
-    if t_f is None:
-        return None
-    return _n2k(130312, sid=_next_sid(), actualTemperature=_f_to_k(t_f), setTemperature=None)
-
-
-def process_air_temp_f():
-    if get_live_data("Air Temperature (°C)") is not None:
-        return None
-    t_f = get_live_data("Air Temperature (°F)")
-    if t_f is None:
-        return None
-    return _n2k(130312, sid=_next_sid(), source="Outside Temperature",
-                actualTemperature=_f_to_k(t_f), setTemperature=None)
-
-
-def _prop_raw_wind_speed() -> list[str] | None:
-    ws = get_live_data("Apparent Wind Speed (Raw)")
-    wa = get_live_data("Apparent Wind Angle (Raw)")
-    if ws is None and wa is None:
-        return None
-    return _n2k_proprietary(65280, _PROP_MFR_HDR + struct.pack('<HH', _p_u16(ws), _p_u16(wa)))
-
-
-def _prop_raw_heading() -> list[str] | None:
-    hd = get_live_data("Heading (Raw)")
-    if hd is None:
-        return None
-    return _n2k_proprietary(65281, _PROP_MFR_HDR + struct.pack('<H', _p_u16(hd)))
-
-
-def _prop_raw_boatspeed() -> list[str] | None:
-    bs = get_live_data("Boatspeed (Raw)")
-    if bs is None:
-        return None
-    return _n2k_proprietary(65282, _PROP_MFR_HDR + struct.pack('<H', _p_u16(bs)))
+    return _n2k(129283, sid=_next_sid(), xte=xte)
 
 
 # ── Channel map ───────────────────────────────────────────────────────────────
 
 _CHANNEL_MAP: dict[str, Callable[[], list[str] | None] | str] = {
-    "Heading":                      process_heading,
-    "Rudder Angle":                 process_rudder,
-    "Heading (Raw)":                _prop_raw_heading,
-    "Boatspeed (Knots)":            process_boatspeed,
-    "Boatspeed (Raw)":              _prop_raw_boatspeed,
-    "Depth (Meters)":               process_depth,
-    "Depth (Feet)":                 "duplicate of Depth (Meters) in different units — not sent",
-    "Depth (Fathoms)":              "duplicate of Depth (Meters) in different units — not sent",
-    "Apparent Wind Angle":          process_apparent_wind,
-    "Apparent Wind Speed (Knots)":  "covered by 'Apparent Wind Angle' trigger (same frame)",
-    "Apparent Wind Speed (Raw)":    _prop_raw_wind_speed,
-    "Apparent Wind Angle (Raw)":    "covered by 'Apparent Wind Speed (Raw)' trigger (same frame)",
-    "True Wind Angle":              process_true_wind,
-    "True Wind Direction":          process_twd,
-    "True Wind Speed (Knots)":      "covered by 'True Wind Angle' + 'True Wind Direction' triggers (same frame)",
-    "True Wind Speed (m/s)":        "covered by 'True Wind Angle' + 'True Wind Direction' triggers (same frame)",
-    "Leeway":                       process_leeway,
-    "Speed Over Ground":            process_cog_sog,
-    "Course Over Ground (True)":    "covered by 'Speed Over Ground' trigger (same frame)",
-    "Course Over Ground (Mag)":     "covered by 'Speed Over Ground' trigger (same frame)",
-    "Battery Volts":                process_battery,
-    "Heel Angle":                   process_attitude,
-    "Fore/Aft Trim":                "covered by 'Heel Angle' trigger (same frame)",
-    "Stored Log (NM)":              process_distance_log,
-    "Trip Log (NM)":                "covered by 'Stored Log (NM)' trigger (same frame)",
-    "Sea Temperature (°C)":         process_sea_temp,
-    "Sea Temperature (°F)":         process_sea_temp_f,
-    "LatLon":                       process_position,
-    "Barometric Pressure":          process_pressure,
-    "Air Temperature (°C)":         process_air_temp,
-    "Air Temperature (°F)":         process_air_temp_f,
-    "Tidal Set":                    process_set_drift,
-    "Tidal Drift":                  "covered by 'Tidal Set' trigger (same frame)",
-    "Yaw rate":                     process_rate_of_turn,
-    "Cross Track Error":            process_xte,
+    "navigation.headingMagnetic":                   process_heading,
+    "navigation.headingTrue":                       process_heading,
+    "steering.rudderAngle":                         process_rudder,
+    "navigation.speedThroughWater":                 process_boatspeed,
+    "environment.depth.belowTransducer":            process_depth,
+    "environment.wind.angleApparent":               process_apparent_wind,
+    "environment.wind.speedApparent":               "covered by angleApparent (same frame)",
+    "environment.wind.angleTrueWater":              process_true_wind,
+    "environment.wind.directionMagnetic":           process_twd,
+    "environment.wind.directionTrue":               process_twd,
+    "environment.wind.speedTrue":                   "covered by TWA/TWD (same frame)",
+    "navigation.leewayAngle":                       process_leeway,
+    "navigation.speedOverGround":                   process_cog_sog,
+    "navigation.courseOverGroundTrue":              "covered by speedOverGround (same frame)",
+    "navigation.courseOverGroundMagnetic":          "covered by speedOverGround (same frame)",
+    "electrical.batteries.house.voltage":           process_battery,
+    "navigation.attitude.roll":                     process_attitude,
+    "navigation.attitude.pitch":                    "covered by attitude.roll (same frame)",
+    "navigation.log":                               process_distance_log,
+    "navigation.trip.log":                          "covered by navigation.log (same frame)",
+    "environment.water.temperature":                process_sea_temp,
+    "environment.outside.temperature":              process_air_temp,
+    "navigation.position":                          process_position,
+    "environment.outside.pressure":                 process_pressure,
+    "navigation.rateOfTurn":                        process_rate_of_turn,
+    "navigation.courseGreatCircle.crossTrackError": process_xte,
+    "environment.current.setMagnetic":              process_set_drift,
+    "environment.current.setTrue":                  process_set_drift,
+    "environment.current.drift":                    "covered by current.set* (same frame)",
 }
 
 
 # ── Frame processing ──────────────────────────────────────────────────────────
 
-def trigger_n2k_frame(channel_name: str) -> list[str] | None:
-    entry = _CHANNEL_MAP.get(channel_name)
+def trigger_n2k_frame(path: str) -> list[str] | None:
+    entry = _CHANNEL_MAP.get(path)
     if entry is None:
-        logger.debug(f"No trigger for {channel_name!r}")
+        logger.debug(f"No trigger for {path!r}")
     elif isinstance(entry, str):
-        logger.debug(f"No trigger for {channel_name!r} — {entry}")
+        logger.debug(f"No trigger for {path!r} — {entry}")
     else:
         return entry()
     return None
@@ -580,21 +481,21 @@ class NMEA2000Handler(OutputHandler):
             _send_product_info(udp_socket, self._host, self._n2k_port)
             self._last_product_info = now
 
-    def process_channel(self, channel_name, old_entry, udp_socket):
+    def process_channel(self, path, old_entry, udp_socket):
         now = time.monotonic()
-        current = live_data.get(channel_name)
-        new_key = (current["value"], current["display_text"]) if current else (None, None)
-        old_key = (old_entry["value"], old_entry["display_text"]) if old_entry else (None, None)
+        current = live_data.get(path)
+        new_key = current["value"] if current else None
+        old_key = old_entry["value"] if old_entry else None
 
-        last_sent = _channel_last_sent.get(channel_name)
+        last_sent = _channel_last_sent.get(path)
         if last_sent is not None:
             if (now - last_sent) < MIN_SEND_INTERVAL:
                 return
             if new_key == old_key and (now - last_sent) < REBROADCAST_AGE:
                 return
 
-        _channel_last_sent[channel_name] = now
-        frames = trigger_n2k_frame(channel_name)
+        _channel_last_sent[path] = now
+        frames = trigger_n2k_frame(path)
         if frames:
             for msg in frames:
                 try:

@@ -28,7 +28,7 @@ classifiers = [
 ]
 dependencies = [
     "pyserial>=3.5",
-    "pyfastnet>=2.0.13",
+    "pyfastnet>=3.0.0",
     "nmea2000>=2026.4.2",
 ]
 

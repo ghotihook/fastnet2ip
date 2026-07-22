@@ -1,34 +1,15 @@
 from datetime import datetime, timezone
 
 # Single-threaded access only: written and read from the main run loop.
+# pyfastnet v3 emits {signalk_path: SI_value}, so entries key a Signal K path to its
+# latest SI value plus a timestamp for freshness/age.
 live_data: dict = {}
 
 
-def update_live_data(channel_name, channel_id, value, display_text, layout):
-    live_data[channel_name] = {
-        "channel_id":   channel_id,
-        "value":        value,
-        "display_text": display_text,
-        "layout":       layout,
-        "timestamp":    datetime.now(timezone.utc),
-    }
+def update_live_data(path, value):
+    live_data[path] = {"value": value, "timestamp": datetime.now(timezone.utc)}
 
 
-def get_live_data(name, as_string=False):
-    entry = live_data.get(name)
-    if not entry:
-        return None
-    val = entry.get("value")
-    if as_string:
-        return str(val) if val is not None else entry.get("display_text")
-    return val
-
-
-def get_live_display(name):
-    entry = live_data.get(name)
-    return entry.get("display_text") if entry else None
-
-
-def get_live_layout(name):
-    entry = live_data.get(name)
-    return entry.get("layout") if entry else None
+def get_live_data(path):
+    entry = live_data.get(path)
+    return entry.get("value") if entry else None

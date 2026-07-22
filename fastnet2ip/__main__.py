@@ -19,15 +19,15 @@ _HANDLERS = {
 }
 
 _GPS_CHANNELS = frozenset({
-    "LatLon",
-    "Speed Over Ground",
-    "Course Over Ground (True)",
-    "Course Over Ground (Mag)",
+    "navigation.position",
+    "navigation.speedOverGround",
+    "navigation.courseOverGroundTrue",
+    "navigation.courseOverGroundMagnetic",
 })
 
 _HEADING_CHANNELS = frozenset({
-    "Heading",
-    "Heading (Raw)",
+    "navigation.headingMagnetic",
+    "navigation.headingTrue",
 })
 
 
@@ -39,21 +39,16 @@ def _drain_frame_queue(fq, handler, udp_socket, ignore_gps=False, ignore_heading
             break
         if not frame:
             continue
-        for channel_name, channel_data in frame.get("values", {}).items():
-            if not channel_data:
+        # pyfastnet v3 emits {signalk_path: SI_value}.
+        for path, value in frame.get("values", {}).items():
+            if ignore_gps and path in _GPS_CHANNELS:
                 continue
-            if ignore_gps and channel_name in _GPS_CHANNELS:
+            if ignore_heading and path in _HEADING_CHANNELS:
                 continue
-            if ignore_heading and channel_name in _HEADING_CHANNELS:
-                continue
-            channel_id   = channel_data.get("channel_id", "??")
-            value        = channel_data.get("value")
-            display_text = channel_data.get("display_text", "")
-            layout       = channel_data.get("layout")
 
-            old_entry = live_data.get(channel_name)
-            update_live_data(channel_name, channel_id, value, display_text, layout)
-            handler.process_channel(channel_name, old_entry, udp_socket)
+            old_entry = live_data.get(path)
+            update_live_data(path, value)
+            handler.process_channel(path, old_entry, udp_socket)
 
 
 def run_loop(input_source, is_file, handler, udp_socket, show_live_data, ignore_gps=False, ignore_heading=False):

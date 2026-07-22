@@ -1,16 +1,34 @@
 import argparse
+import math
 import socket
 from datetime import datetime, timezone, timedelta
 
 from fastnet_decoder import logger
 
-from fastnet2ip.core.data_store import live_data, get_live_data, get_live_layout
+from fastnet2ip.core.data_store import live_data, get_live_data
 from fastnet2ip.handlers.base import OutputHandler
 
 REBROADCAST_AGE = 5
 MIN_SEND_INTERVAL = 0.05
 DEFAULT_UDP_PORT = 2002
 DEFAULT_HOST = "255.255.255.255"
+
+# pyfastnet v3 emits SI; NMEA 0183 sentences use knots / degrees / feet, so convert.
+KN_MS = 0.514444
+FT_M = 0.3048
+FATHOM_M = 1.8288
+
+
+def _kn(ms):
+    return None if ms is None else ms / KN_MS
+
+
+def _deg(rad):
+    return None if rad is None else math.degrees(rad)
+
+
+def _wrap360(deg):
+    return None if deg is None else deg % 360.0
 
 
 # ── NMEA helpers ──────────────────────────────────────────────────────────────
@@ -26,22 +44,29 @@ def _sentence(body):
     return f"${body}*{_checksum(body)}\r\n"
 
 
+def _ddmm(deg, is_lat):
+    """Decimal degrees → (DDMM.mmm, hemisphere)."""
+    hemi = ("N" if deg >= 0 else "S") if is_lat else ("E" if deg >= 0 else "W")
+    deg = abs(deg)
+    d = int(deg)
+    m = (deg - d) * 60
+    width = 2 if is_lat else 3
+    return f"{d:0{width}d}{m:06.3f}", hemi
+
+
 # ── Process functions ─────────────────────────────────────────────────────────
 
 def process_vhw():
-    hdg = get_live_data("Heading")
-    bs = get_live_data("Boatspeed (Knots)")
-    hdg_layout = get_live_layout("Heading")
-    bs_str = f"{bs:.1f}" if bs is not None else ""
-    bs_kmh_str = f"{bs * 1.852:.1f}" if bs is not None else ""
+    mag = get_live_data("navigation.headingMagnetic")
+    tru = get_live_data("navigation.headingTrue")
+    bs_kn = _kn(get_live_data("navigation.speedThroughWater"))
+    bs_str = f"{bs_kn:.1f}" if bs_kn is not None else ""
+    bs_kmh_str = f"{bs_kn * 1.852:.1f}" if bs_kn is not None else ""
     hdg_true_str, hdg_mag_str = "", ""
-    if hdg is not None:
-        if hdg_layout == "°M":
-            hdg_mag_str = f"{hdg:.1f}"
-        elif hdg_layout == "°T":
-            hdg_true_str = f"{hdg:.1f}"
-        else:
-            logger.debug(f"process_vhw: unknown heading layout {hdg_layout!r}")
+    if mag is not None:
+        hdg_mag_str = f"{_wrap360(_deg(mag)):.1f}"
+    elif tru is not None:
+        hdg_true_str = f"{_wrap360(_deg(tru)):.1f}"
     body = (
         f"IIVHW,"
         f"{hdg_true_str},{'T' if hdg_true_str else ''},"
@@ -53,9 +78,9 @@ def process_vhw():
 
 
 def process_dbt():
-    df  = get_live_data("Depth (Feet)")
-    dm  = get_live_data("Depth (Meters)")
-    dfa = get_live_data("Depth (Fathoms)")
+    dm = get_live_data("environment.depth.belowTransducer")   # metres
+    df = dm / FT_M if dm is not None else None
+    dfa = dm / FATHOM_M if dm is not None else None
     body = (
         f"IIDBT,"
         f"{f'{df:.1f}' if df is not None else ''},f,"
@@ -66,35 +91,30 @@ def process_dbt():
 
 
 def process_rsa():
-    ra = get_live_data("Rudder Angle")
+    ra = _deg(get_live_data("steering.rudderAngle"))
     ra_str = f"{ra:.1f}" if ra is not None else ""
     status = "A" if ra is not None else "V"
     return _sentence(f"IIRSA,{ra_str},{status},,")
 
 
 def process_xdr_battv():
-    bv = get_live_data("Battery Volts")
+    bv = get_live_data("electrical.batteries.house.voltage")
     bv_str = f"{bv:.2f}" if bv is not None else ""
     return _sentence(f"IIXDR,U,{bv_str},V,BATTV")
 
 
 def process_mwd():
-    twd = get_live_data("True Wind Direction")
-    twd_layout = get_live_layout("True Wind Direction")
-    tws = get_live_data("True Wind Speed (Knots)")
-    if twd is not None and twd < 0:
-        twd += 360
-    twd_str = f"{twd:.1f}" if twd is not None else ""
-    tws_str = f"{tws:.1f}" if tws is not None else ""
-    tws_ms_str = f"{tws * 1852.0 / 3600.0:.1f}" if tws is not None else ""
+    mag = get_live_data("environment.wind.directionMagnetic")
+    tru = get_live_data("environment.wind.directionTrue")
+    tws = get_live_data("environment.wind.speedTrue")   # m/s
     twd_true_str, twd_mag_str = "", ""
-    if twd_str:
-        if twd_layout == "°T":
-            twd_true_str = twd_str
-        elif twd_layout == "°M":
-            twd_mag_str = twd_str
-        else:
-            logger.debug(f"process_mwd: TWD layout {twd_layout!r} unknown — omitting direction")
+    if mag is not None:
+        twd_mag_str = f"{_wrap360(_deg(mag)):.1f}"
+    elif tru is not None:
+        twd_true_str = f"{_wrap360(_deg(tru)):.1f}"
+    tws_kn = _kn(tws)
+    tws_str = f"{tws_kn:.1f}" if tws_kn is not None else ""
+    tws_ms_str = f"{tws:.1f}" if tws is not None else ""
     body = (
         f"IIMWD,"
         f"{twd_true_str},{'T' if twd_true_str else ''},"
@@ -105,23 +125,19 @@ def process_mwd():
 
 
 def process_mwv_true():
-    twa = get_live_data("True Wind Angle")
-    if twa is not None and twa < 0:
-        twa += 360
+    twa = _wrap360(_deg(get_live_data("environment.wind.angleTrueWater")))
     twa_str = f"{twa:.1f}" if twa is not None else ""
-    tws = get_live_data("True Wind Speed (Knots)")
-    tws_str = f"{tws:.1f}" if tws is not None else ""
+    tws_kn = _kn(get_live_data("environment.wind.speedTrue"))
+    tws_str = f"{tws_kn:.1f}" if tws_kn is not None else ""
     status = "A" if (twa_str and tws_str) else "V"
     return _sentence(f"IIMWV,{twa_str},T,{tws_str},N,{status}")
 
 
 def process_mwv_apparent():
-    awa = get_live_data("Apparent Wind Angle")
-    if awa is not None and awa < 0:
-        awa += 360
+    awa = _wrap360(_deg(get_live_data("environment.wind.angleApparent")))
     awa_str = f"{awa:.1f}" if awa is not None else ""
-    aws = get_live_data("Apparent Wind Speed (Knots)")
-    aws_str = f"{aws:.1f}" if aws is not None else ""
+    aws_kn = _kn(get_live_data("environment.wind.speedApparent"))
+    aws_str = f"{aws_kn:.1f}" if aws_kn is not None else ""
     status = "A" if (awa_str and aws_str) else "V"
     return _sentence(f"IIMWV,{awa_str},R,{aws_str},N,{status}")
 
@@ -130,19 +146,14 @@ def process_mda():
     def val_unit(val, fmt, unit):
         return f"{fmt.format(val)},{unit}," if val is not None else ",,"
 
-    bp_hpa     = get_live_data("Barometric Pressure")
-    air_temp   = get_live_data("Air Temperature (°C)")
-    if air_temp is None:
-        t_f = get_live_data("Air Temperature (°F)")
-        if t_f is not None:
-            air_temp = (t_f - 32) * 5 / 9
-    water_temp = get_live_data("Sea Temperature (°C)")
-    if water_temp is None:
-        t_f = get_live_data("Sea Temperature (°F)")
-        if t_f is not None:
-            water_temp = (t_f - 32) * 5 / 9
+    bp_pa = get_live_data("environment.outside.pressure")   # Pa
+    bp_hpa = bp_pa / 100 if bp_pa is not None else None
+    air_k = get_live_data("environment.outside.temperature")   # Kelvin
+    air_temp = air_k - 273.15 if air_k is not None else None
+    water_k = get_live_data("environment.water.temperature")
+    water_temp = water_k - 273.15 if water_k is not None else None
     bp_inhg = bp_hpa * 0.0295299830714 if bp_hpa is not None else None
-    bp_bar  = bp_hpa / 1000 if bp_hpa is not None else None
+    bp_bar = bp_hpa / 1000 if bp_hpa is not None else None
     body = (
         "IIMDA,"
         f"{val_unit(bp_inhg, '{:.4f}', 'I')}"
@@ -159,30 +170,23 @@ def process_mda():
 
 
 def process_hdm():
-    hdg = get_live_data("Heading")
-    hdg_layout = get_live_layout("Heading")
-    hdg_str = f"{hdg:.1f}" if hdg is not None else ""
-    if hdg_layout == "°M":
-        return _sentence(f"IIHDM,{hdg_str},M")
-    elif hdg_layout == "°T":
-        return _sentence(f"IIHDT,{hdg_str},T")
-    else:
-        logger.debug(f"process_hdm: unknown heading layout {hdg_layout!r} — skipping")
-        return None
+    mag = get_live_data("navigation.headingMagnetic")
+    tru = get_live_data("navigation.headingTrue")
+    if mag is not None:
+        return _sentence(f"IIHDM,{_wrap360(_deg(mag)):.1f},M")
+    if tru is not None:
+        return _sentence(f"IIHDT,{_wrap360(_deg(tru)):.1f},T")
+    return None
 
 
 def process_vtg():
-    tt = get_live_data("Course Over Ground (True)")
-    if tt is not None and tt < 0:
-        tt += 360
-    mt = get_live_data("Course Over Ground (Mag)")
-    if mt is not None and mt < 0:
-        mt += 360
-    sog = get_live_data("Speed Over Ground")
-    tt_str   = f"{tt:.1f}" if tt is not None else ""
-    mt_str   = f"{mt:.1f}" if mt is not None else ""
-    kts_str  = f"{sog:.1f}" if sog is not None else ""
-    kmph_str = f"{sog * 1.852:.1f}" if sog is not None else ""
+    tt = _wrap360(_deg(get_live_data("navigation.courseOverGroundTrue")))
+    mt = _wrap360(_deg(get_live_data("navigation.courseOverGroundMagnetic")))
+    sog_kn = _kn(get_live_data("navigation.speedOverGround"))
+    tt_str = f"{tt:.1f}" if tt is not None else ""
+    mt_str = f"{mt:.1f}" if mt is not None else ""
+    kts_str = f"{sog_kn:.1f}" if sog_kn is not None else ""
+    kmph_str = f"{sog_kn * 1.852:.1f}" if sog_kn is not None else ""
     mode = "A" if kts_str else "V"
     fields = [
         tt_str, "T" if tt_str else "",
@@ -195,52 +199,29 @@ def process_vtg():
 
 
 def process_vpw():
-    vmg = get_live_data("Velocity Made Good (Knots)")
-    vmg_layout = get_live_layout("Velocity Made Good (Knots)")
-    if vmg is not None and vmg_layout == "d[data]":
-        vmg = -vmg
-    vmg_kn_str = f"{vmg:.1f}" if vmg is not None else ""
-    vmg_ms_str = f"{vmg * 0.514444:.1f}" if vmg is not None else ""
+    vmg = get_live_data("performance.velocityMadeGood")   # m/s (magnitude)
+    vmg_kn = _kn(vmg)
+    vmg_kn_str = f"{vmg_kn:.1f}" if vmg_kn is not None else ""
+    vmg_ms_str = f"{vmg:.1f}" if vmg is not None else ""
     return _sentence(f"IIVPW,{vmg_kn_str},N,{vmg_ms_str},M")
 
 
 def process_gll():
-    latlon_str = get_live_data("LatLon", as_string=True)
-    if not latlon_str:
+    pos = get_live_data("navigation.position")
+    if not pos:
         return None
-    lat_idx = max(latlon_str.find('N'), latlon_str.find('S'))
-    lon_idx = max(latlon_str.find('E'), latlon_str.find('W'))
-    if lat_idx == -1 or lon_idx == -1:
-        logger.debug(f"GLL: invalid position format ({latlon_str!r})")
-        return None
-    lat_part = latlon_str[:lat_idx]
-    lat_dir  = latlon_str[lat_idx]
-    lon_part = latlon_str[lat_idx + 1:lon_idx]
-    lon_dir  = latlon_str[lon_idx]
+    lat_part, lat_dir = _ddmm(pos["latitude"], is_lat=True)
+    lon_part, lon_dir = _ddmm(pos["longitude"], is_lat=False)
     time_str = datetime.now(timezone.utc).strftime("%H%M%S")
     return _sentence(f"IIGLL,{lat_part},{lat_dir},{lon_part},{lon_dir},{time_str},A")
 
 
-def process_xdr_raw_wind_angle():
-    rwa = get_live_data("Apparent Wind Angle (Raw)")
-    rwa_str = f"{rwa:.2f}" if rwa is not None else ""
-    return _sentence(f"IIXDR,A,{rwa_str},V,RAW_WIND_A")
-
-
-def process_xdr_raw_wind_speed():
-    rws = get_live_data("Apparent Wind Speed (Raw)")
-    rws_str = f"{rws:.2f}" if rws is not None else ""
-    return _sentence(f"IIXDR,G,{rws_str},,RAW_WIND_S")
-
-
 def process_vdr():
-    tidal_set = get_live_data("Tidal Set")
-    tidal_layout = get_live_layout("Tidal Set")
-    speed_knots = get_live_data("Tidal Drift")
-    deg_true     = tidal_set if tidal_layout == "°T" else None
-    deg_magnetic = tidal_set if tidal_layout == "°M" else None
-    if tidal_set is not None and tidal_layout not in ("°T", "°M"):
-        logger.debug(f"process_vdr: Tidal Set layout {tidal_layout!r} unknown — omitting direction")
+    set_mag = get_live_data("environment.current.setMagnetic")
+    set_tru = get_live_data("environment.current.setTrue")
+    drift_kn = _kn(get_live_data("environment.current.drift"))
+    deg_true = _wrap360(_deg(set_tru)) if set_tru is not None else None
+    deg_magnetic = _wrap360(_deg(set_mag)) if set_mag is not None else None
 
     def fmt(val, spec, unit):
         return f"{spec.format(val)},{unit}," if val is not None else ",,"
@@ -249,25 +230,19 @@ def process_vdr():
         "IIVDR,"
         + fmt(deg_true, "{:.1f}", "T")
         + fmt(deg_magnetic, "{:.1f}", "M")
-        + fmt(speed_knots, "{:.2f}", "N")
+        + fmt(drift_kn, "{:.2f}", "N")
     )
     return _sentence(body)
 
 
-def process_xdr_raw_bsp():
-    raw = get_live_data("Boatspeed (Raw)")
-    raw_str = f"{raw:.2f}" if raw is not None else ""
-    return _sentence(f"IIXDR,G,{raw_str},,RAW_BSP")
-
-
 def process_xdr_roll():
-    ra = get_live_data("Heel Angle")
+    ra = _deg(get_live_data("navigation.attitude.roll"))
     ra_str = f"{ra:.2f}" if ra is not None else ""
     return _sentence(f"IIXDR,A,{ra_str},D,ROLL")
 
 
 def process_xdr_pitch():
-    pt = get_live_data("Fore/Aft Trim")
+    pt = _deg(get_live_data("navigation.attitude.pitch"))
     pt_str = f"{pt:.2f}" if pt is not None else ""
     return _sentence(f"IIXDR,A,{pt_str},D,PITCH")
 
@@ -275,45 +250,43 @@ def process_xdr_pitch():
 # ── Channel map ───────────────────────────────────────────────────────────────
 
 _TRIGGER_MAP = {
-    "Boatspeed (Knots)":           process_vhw,
-    "Depth (Meters)":              process_dbt,
-    "Rudder Angle":                process_rsa,
-    "Battery Volts":               process_xdr_battv,
-    "True Wind Direction":         process_mwd,
-    "True Wind Speed (Knots)":     process_mwv_true,
-    "True Wind Angle":             process_mwv_true,
-    "Apparent Wind Speed (Knots)": process_mwv_apparent,
-    "Apparent Wind Angle":         process_mwv_apparent,
-    "Air Temperature (°C)":        process_mda,
-    "Air Temperature (°F)":        process_mda,
-    "Sea Temperature (°C)":        process_mda,
-    "Sea Temperature (°F)":        process_mda,
-    "Barometric Pressure":         process_mda,
-    "Heading":                     process_hdm,
-    "Speed Over Ground":           process_vtg,
-    "Course Over Ground (Mag)":    process_vtg,
-    "Course Over Ground (True)":   process_vtg,
-    "LatLon":                      process_gll,
-    "Apparent Wind Angle (Raw)":   process_xdr_raw_wind_angle,
-    "Apparent Wind Speed (Raw)":   process_xdr_raw_wind_speed,
-    "Tidal Drift":                 process_vdr,
-    "Tidal Set":                   process_vdr,
-    "Boatspeed (Raw)":             process_xdr_raw_bsp,
-    "Heel Angle":                  process_xdr_roll,
-    "Fore/Aft Trim":               process_xdr_pitch,
-    "Velocity Made Good (Knots)":  process_vpw,
+    "navigation.speedThroughWater":        process_vhw,
+    "environment.depth.belowTransducer":   process_dbt,
+    "steering.rudderAngle":                process_rsa,
+    "electrical.batteries.house.voltage":  process_xdr_battv,
+    "environment.wind.directionMagnetic":  process_mwd,
+    "environment.wind.directionTrue":      process_mwd,
+    "environment.wind.speedTrue":          process_mwv_true,
+    "environment.wind.angleTrueWater":     process_mwv_true,
+    "environment.wind.speedApparent":      process_mwv_apparent,
+    "environment.wind.angleApparent":      process_mwv_apparent,
+    "environment.outside.temperature":     process_mda,
+    "environment.water.temperature":       process_mda,
+    "environment.outside.pressure":        process_mda,
+    "navigation.headingMagnetic":          process_hdm,
+    "navigation.headingTrue":              process_hdm,
+    "navigation.speedOverGround":          process_vtg,
+    "navigation.courseOverGroundMagnetic": process_vtg,
+    "navigation.courseOverGroundTrue":     process_vtg,
+    "navigation.position":                 process_gll,
+    "environment.current.drift":           process_vdr,
+    "environment.current.setMagnetic":     process_vdr,
+    "environment.current.setTrue":         process_vdr,
+    "navigation.attitude.roll":            process_xdr_roll,
+    "navigation.attitude.pitch":           process_xdr_pitch,
+    "performance.velocityMadeGood":        process_vpw,
 }
 
 
-def _trigger(channel_name):
-    fn = _TRIGGER_MAP.get(channel_name)
+def _trigger(path):
+    fn = _TRIGGER_MAP.get(path)
     if not fn:
-        logger.debug(f"No trigger for channel: {channel_name}")
+        logger.debug(f"No trigger for path: {path}")
         return None
     try:
         return fn()
     except Exception as e:
-        logger.error(f"Error in trigger for {channel_name}: {e}")
+        logger.error(f"Error in trigger for {path}: {e}")
         return None
 
 
@@ -338,22 +311,16 @@ class NMEA0183Handler(OutputHandler):
     def startup(self, udp_socket: socket.socket) -> None:
         pass
 
-    def process_channel(self, channel_name, old_entry, udp_socket):
-        current = live_data.get(channel_name)
+    def process_channel(self, path, old_entry, udp_socket):
+        current = live_data.get(path)
         if not current:
             return
 
-        new_val = current.get("value")
-        new_comparable = new_val if new_val is not None else current.get("display_text")
-
-        if old_entry:
-            old_val = old_entry.get("value")
-            old_comparable = old_val if old_val is not None else old_entry.get("display_text")
-        else:
-            old_comparable = None
+        new_comparable = current.get("value")
+        old_comparable = old_entry.get("value") if old_entry else None
 
         now = datetime.now(timezone.utc)
-        last_sent = self._last_sent.get(channel_name)
+        last_sent = self._last_sent.get(path)
         if last_sent is not None and (now - last_sent) < timedelta(seconds=MIN_SEND_INTERVAL):
             return
         age_exceeded = last_sent is None or (
@@ -361,11 +328,11 @@ class NMEA0183Handler(OutputHandler):
         )
 
         if (new_comparable != old_comparable) or age_exceeded:
-            message = _trigger(channel_name)
+            message = _trigger(path)
             if message:
                 try:
                     udp_socket.sendto(message.encode(), (self._host, self._port))
-                    self._last_sent[channel_name] = now
+                    self._last_sent[path] = now
                     logger.debug(f"NMEA0183: {message.strip()}")
                 except socket.error as e:
                     logger.error(f"Failed to send message: {e}")
