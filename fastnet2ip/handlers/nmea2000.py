@@ -37,7 +37,6 @@ REBROADCAST_AGE   = 5
 MIN_SEND_INTERVAL = 0.05
 
 _channel_last_sent: dict = {}
-_ignored_channels: set   = set()
 _sid = 0
 _hb_seq = 0
 
@@ -489,7 +488,7 @@ class NMEA2000Handler(OutputHandler):
         )
 
     def setup(self, args: argparse.Namespace) -> None:
-        global N2K_SRC, N2K_PRI, _n2k_formatter, _ignored_channels
+        global N2K_SRC, N2K_PRI, _n2k_formatter
         N2K_SRC = args.n2k_src
         N2K_PRI = args.n2k_pri
         _n2k_formatter = _N2K_FORMATTERS[args.n2k_format]

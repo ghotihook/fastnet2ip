@@ -12,7 +12,6 @@ FILE_READ_DELAY = 0.05
 
 
 def initialize_input_source(args):
-    from fastnet_decoder import set_log_level as _sl  # avoid circular at module load
     if args.serial:
         from fastnet_decoder import logger
         logger.info(f"Serial port: {args.serial}")
