@@ -214,6 +214,7 @@ If the bridge is the **only** source of that data on your network, omit them.
 | Fastnet channel | NMEA 0183 | NMEA 2000 |
 |---|---|---|
 | Heading | HDM / HDT | PGN 127250 |
+| Heading (Raw) | — | PGN 65281 |
 
 ## Hardware
 
@@ -271,6 +272,9 @@ XDR transducers:
 | `BATTV` | Battery voltage |
 | `ROLL` | Heel angle (degrees) |
 | `PITCH` | Fore/aft trim (degrees) |
+| `RAW_WIND_A` | Apparent wind angle raw sensor value |
+| `RAW_WIND_S` | Apparent wind speed raw sensor value |
+| `RAW_BSP` | Boatspeed raw sensor value |
 
 ### NMEA 2000
 
@@ -292,6 +296,9 @@ XDR transducers:
 | 130306 | Wind Data (apparent, true boat-ref, true ground-ref) |
 | 130312 | Temperature (sea + air) |
 | 130314 | Pressure |
+| 65280 | Proprietary: raw wind speed, wind angle |
+| 65281 | Proprietary: raw heading |
+| 65282 | Proprietary: raw boatspeed |
 
 **Wire formats** (`--n2k-format`):
 - `ydwg` — Yacht Devices RAW UDP: `HH:MM:SS.mmm R XXXXXXXX DD DD DD...`

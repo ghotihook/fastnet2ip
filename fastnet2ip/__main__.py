@@ -28,6 +28,7 @@ _GPS_CHANNELS = frozenset({
 _HEADING_CHANNELS = frozenset({
     "navigation.headingMagnetic",
     "navigation.headingTrue",
+    "bandg.navigation.rawHeading",
 })
 
 

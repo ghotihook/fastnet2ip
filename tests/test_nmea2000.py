@@ -109,6 +109,24 @@ class TestSmoke(unittest.TestCase):
         bad = [m for m in self.n2k if not pattern.match(m)]
         self.assertFalse(bad, f"Malformed N2K messages: {bad[:3]}")
 
+    def test_raw_sensor_pgns_present_and_valid(self):
+        for pgn in (65280, 65281, 65282):
+            self.assertIn(pgn, self.pgns, f"PGN {pgn} (proprietary raw) not found")
+        B_AND_G_HDR = bytes([0x7D, 0x81])
+        for pgn in (65280, 65281, 65282):
+            msgs = [
+                m for m in self.n2k
+                if len(m.strip().split()) >= 3
+                and m.strip().split()[1] == 'R'
+                and _pgn_from_can_id(m.strip().split()[2]) == pgn
+            ]
+            self.assertTrue(msgs, f"No messages for PGN {pgn}")
+            for msg in msgs:
+                parts = msg.strip().split()
+                payload = bytes.fromhex(''.join(parts[3:]))
+                self.assertEqual(payload[:2], B_AND_G_HDR,
+                                 f"PGN {pgn}: expected B&G header 7D 81, got {payload[:2].hex()}")
+
     def test_no_output_without_data(self):
         data_store.live_data.clear()
         bridge._channel_last_sent.clear()

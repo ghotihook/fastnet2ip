@@ -60,7 +60,17 @@ _PGN_NAMES: dict[int, str] = {
     130306: "Wind Data",
     130312: "Temperature",
     130314: "Pressure",
+    65280:  "Proprietary: Raw Wind",
+    65281:  "Proprietary: Raw Heading",
+    65282:  "Proprietary: Raw Boatspeed",
 }
+
+# Proprietary PGN manufacturer header: B&G (code 381), Marine industry (code 4).
+_PROP_MFR_HDR = struct.pack('<H', (4 << 13) | 381)
+
+
+def _p_u16(val) -> int:
+    return 0xFFFF if val is None else int(val) & 0xFFFF
 
 
 def _pgn_label(msg: str) -> str:
@@ -376,6 +386,29 @@ def process_xte():
     return _n2k(129283, sid=_next_sid(), xte=xte)
 
 
+# Raw (pre-calibration) sensor values → B&G proprietary PGNs (opaque u16 counts).
+def _prop_raw_wind_speed() -> list[str] | None:
+    ws = get_live_data("bandg.wind.rawSpeedApparent")
+    wa = get_live_data("bandg.wind.rawAngleApparent")
+    if ws is None and wa is None:
+        return None
+    return _n2k_proprietary(65280, _PROP_MFR_HDR + struct.pack('<HH', _p_u16(ws), _p_u16(wa)))
+
+
+def _prop_raw_heading() -> list[str] | None:
+    hd = get_live_data("bandg.navigation.rawHeading")
+    if hd is None:
+        return None
+    return _n2k_proprietary(65281, _PROP_MFR_HDR + struct.pack('<H', _p_u16(hd)))
+
+
+def _prop_raw_boatspeed() -> list[str] | None:
+    bs = get_live_data("bandg.navigation.rawSpeedThroughWater")
+    if bs is None:
+        return None
+    return _n2k_proprietary(65282, _PROP_MFR_HDR + struct.pack('<H', _p_u16(bs)))
+
+
 # ── Channel map ───────────────────────────────────────────────────────────────
 
 _CHANNEL_MAP: dict[str, Callable[[], list[str] | None] | str] = {
@@ -408,6 +441,10 @@ _CHANNEL_MAP: dict[str, Callable[[], list[str] | None] | str] = {
     "environment.current.setMagnetic":              process_set_drift,
     "environment.current.setTrue":                  process_set_drift,
     "environment.current.drift":                    "covered by current.set* (same frame)",
+    "bandg.wind.rawSpeedApparent":                  _prop_raw_wind_speed,
+    "bandg.wind.rawAngleApparent":                  "covered by rawSpeedApparent (PGN 65280)",
+    "bandg.navigation.rawHeading":                  _prop_raw_heading,
+    "bandg.navigation.rawSpeedThroughWater":        _prop_raw_boatspeed,
 }
 
 

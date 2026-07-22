@@ -247,6 +247,25 @@ def process_xdr_pitch():
     return _sentence(f"IIXDR,A,{pt_str},D,PITCH")
 
 
+# Raw (pre-calibration) sensor values — opaque counts, emitted verbatim.
+def process_xdr_raw_wind_angle():
+    rwa = get_live_data("bandg.wind.rawAngleApparent")
+    rwa_str = f"{rwa:.2f}" if rwa is not None else ""
+    return _sentence(f"IIXDR,A,{rwa_str},V,RAW_WIND_A")
+
+
+def process_xdr_raw_wind_speed():
+    rws = get_live_data("bandg.wind.rawSpeedApparent")
+    rws_str = f"{rws:.2f}" if rws is not None else ""
+    return _sentence(f"IIXDR,G,{rws_str},,RAW_WIND_S")
+
+
+def process_xdr_raw_bsp():
+    raw = get_live_data("bandg.navigation.rawSpeedThroughWater")
+    raw_str = f"{raw:.2f}" if raw is not None else ""
+    return _sentence(f"IIXDR,G,{raw_str},,RAW_BSP")
+
+
 # ── Channel map ───────────────────────────────────────────────────────────────
 
 _TRIGGER_MAP = {
@@ -275,6 +294,9 @@ _TRIGGER_MAP = {
     "navigation.attitude.roll":            process_xdr_roll,
     "navigation.attitude.pitch":           process_xdr_pitch,
     "performance.velocityMadeGood":        process_vpw,
+    "bandg.wind.rawAngleApparent":         process_xdr_raw_wind_angle,
+    "bandg.wind.rawSpeedApparent":         process_xdr_raw_wind_speed,
+    "bandg.navigation.rawSpeedThroughWater": process_xdr_raw_bsp,
 }
 
 
