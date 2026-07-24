@@ -245,8 +245,7 @@ CAN Hat option includes 120 Ω termination which is recommended.
 > requested — 28,800 is non-standard, so it takes the kernel's `BOTHER` path, which has
 > a known first-open quirk (bytes arrive but nothing decodes; a second run "fixes" it).
 > `fastnet2ip` works around it automatically when opening the port. USB RS-485 adapters
-> (e.g. the DTECH dongle) are not affected. Full diagnosis lives in the sibling
-> `fastnet2n2k` project's `docs/uart_first_open_baud_fix.md`.
+> (e.g. the DTECH dongle) are not affected. Full diagnosis: [`docs/uart_first_open_baud_fix.md`](docs/uart_first_open_baud_fix.md).
 
 ## Output reference
 
@@ -330,8 +329,11 @@ Serial port / hex file
   UDP broadcast
 ```
 
-A message is sent when a value changes, or after 5 seconds if unchanged (so
-downstream apps don't lose data during quiet periods).
+A message is sent on **every** channel update — a repeated value is still live data
+worth putting on the wire — rate-capped at 20 Hz per channel so a fast path can't
+flood UDP. There is no dedupe and no periodic re-broadcast: the bridge reflects what
+the instruments provide, and when a source goes quiet its output stops (consumers
+time it out themselves). This matches the sibling `fastnet2n2k` bridge's cadence.
 
 To add a new output format, implement `OutputHandler` in `fastnet2ip/handlers/`
 and add it to `_HANDLERS` in `fastnet2ip/__main__.py`.

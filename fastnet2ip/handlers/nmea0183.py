@@ -8,8 +8,7 @@ from fastnet_decoder import logger
 from fastnet2ip.core.data_store import live_data, get_live_data
 from fastnet2ip.handlers.base import OutputHandler
 
-REBROADCAST_AGE = 5
-MIN_SEND_INTERVAL = 0.05
+MIN_SEND_INTERVAL = 0.05    # per-path rate cap (~20 Hz); debounce only
 DEFAULT_UDP_PORT = 2002
 DEFAULT_HOST = "255.255.255.255"
 
@@ -333,31 +332,27 @@ class NMEA0183Handler(OutputHandler):
     def startup(self, udp_socket: socket.socket) -> None:
         pass
 
-    def process_channel(self, path, old_entry, udp_socket):
+    def process_channel(self, path, udp_socket):
         current = live_data.get(path)
         if not current:
             return
 
-        new_comparable = current.get("value")
-        old_comparable = old_entry.get("value") if old_entry else None
-
+        # Send on every update — a repeated value is still live data worth putting on
+        # the wire — capped only by MIN_SEND_INTERVAL so a fast-updating path can't
+        # flood UDP. No dedupe: the bridge reflects what the instruments provide.
         now = datetime.now(timezone.utc)
         last_sent = self._last_sent.get(path)
         if last_sent is not None and (now - last_sent) < timedelta(seconds=MIN_SEND_INTERVAL):
             return
-        age_exceeded = last_sent is None or (
-            now - last_sent > timedelta(seconds=REBROADCAST_AGE)
-        )
 
-        if (new_comparable != old_comparable) or age_exceeded:
-            message = _trigger(path)
-            if message:
-                try:
-                    udp_socket.sendto(message.encode(), (self._host, self._port))
-                    self._last_sent[path] = now
-                    logger.debug(f"NMEA0183: {message.strip()}")
-                except socket.error as e:
-                    logger.error(f"Failed to send message: {e}")
+        message = _trigger(path)
+        if message:
+            try:
+                udp_socket.sendto(message.encode(), (self._host, self._port))
+                self._last_sent[path] = now
+                logger.debug(f"NMEA0183: {message.strip()}")
+            except socket.error as e:
+                logger.error(f"Failed to send message: {e}")
 
     @property
     def udp_host(self) -> str:

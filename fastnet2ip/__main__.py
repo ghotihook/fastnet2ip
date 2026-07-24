@@ -7,7 +7,7 @@ import time
 import serial
 from fastnet_decoder import FrameBuffer, set_log_level
 
-from fastnet2ip.core.data_store import live_data, update_live_data
+from fastnet2ip.core.data_store import update_live_data
 from fastnet2ip.core.input import initialize_input_source, read_input_source
 from fastnet2ip.core.display import print_live_data
 from fastnet2ip.handlers.nmea0183 import NMEA0183Handler
@@ -47,9 +47,8 @@ def _drain_frame_queue(fq, handler, udp_socket, ignore_gps=False, ignore_heading
             if ignore_heading and path in _HEADING_CHANNELS:
                 continue
 
-            old_entry = live_data.get(path)
             update_live_data(path, value)
-            handler.process_channel(path, old_entry, udp_socket)
+            handler.process_channel(path, udp_socket)
 
 
 def run_loop(input_source, is_file, handler, udp_socket, show_live_data, ignore_gps=False, ignore_heading=False):

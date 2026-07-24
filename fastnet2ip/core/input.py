@@ -30,8 +30,8 @@ def _force_baudrate(ser):
 
     Hardware-verified on a CM4 (``/dev/ttyAMA5``) over six cold boots. A standard rate
     such as 38400 is unaffected, which pins the cause on the custom-divisor path, not
-    the board or wiring. (Ported from fastnet2n2k; see that project's
-    ``docs/uart_first_open_baud_fix.md`` for the full diagnosis.)
+    the board or wiring. See ``docs/uart_first_open_baud_fix.md`` for the full
+    diagnosis (first traced in the sibling fastnet2n2k project).
     """
     ser.baudrate = 9600        # any standard rate — this is what moves the CBAUD bits
     ser.baudrate = BAUDRATE    # ...and back, which now actually programs the divisor

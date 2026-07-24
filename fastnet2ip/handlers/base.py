@@ -22,13 +22,13 @@ class OutputHandler(ABC):
     def process_channel(
         self,
         channel_name: str,
-        old_entry: dict | None,
         udp_socket: socket.socket,
     ) -> None:
         """Encode and transmit output for one updated channel.
 
-        Called after live_data has been updated. The handler owns all
-        rate-limit and value-change logic.
+        Called after live_data has been updated, on every update — a repeated value
+        is still live data worth sending. The handler owns the rate cap
+        (MIN_SEND_INTERVAL) that keeps a fast path from flooding the wire.
         """
 
     def tick(self, udp_socket: socket.socket) -> None:

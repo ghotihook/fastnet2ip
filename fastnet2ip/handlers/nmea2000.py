@@ -17,9 +17,9 @@ from datetime import datetime, timezone
 from nmea2000 import pgns as n2k_pgns
 from nmea2000.encoder import NMEA2000Encoder
 from nmea2000.input_formats import N2KFormat
-import nmea2000.encoder_formats  # registers format handlers
+import nmea2000.encoder_formats  # noqa: F401 — registers format handlers on import
 
-from fastnet2ip.core.data_store import live_data, get_live_data
+from fastnet2ip.core.data_store import get_live_data
 from fastnet2ip.handlers.base import OutputHandler
 
 logger = logging.getLogger("fastnet2ip.handlers.nmea2000")
@@ -33,8 +33,7 @@ logger.setLevel(logging.INFO)
 N2K_SRC           = 201
 N2K_PRI           = 4
 
-REBROADCAST_AGE   = 5
-MIN_SEND_INTERVAL = 0.05
+MIN_SEND_INTERVAL = 0.05    # per-path rate cap (~20 Hz); debounce only
 
 _channel_last_sent: dict = {}
 _sid = 0
@@ -517,18 +516,15 @@ class NMEA2000Handler(OutputHandler):
             _send_product_info(udp_socket, self._host, self._n2k_port)
             self._last_product_info = now
 
-    def process_channel(self, path, old_entry, udp_socket):
+    def process_channel(self, path, udp_socket):
+        # Send on every update — a repeated value is still live data worth putting on
+        # the wire — capped only by MIN_SEND_INTERVAL so a fast-updating path can't
+        # flood UDP. No dedupe: the bridge reflects what the instruments provide.
+        # (The 60s gateway-identity heartbeat in tick() is unrelated to this.)
         now = time.monotonic()
-        current = live_data.get(path)
-        new_key = current["value"] if current else None
-        old_key = old_entry["value"] if old_entry else None
-
         last_sent = _channel_last_sent.get(path)
-        if last_sent is not None:
-            if (now - last_sent) < MIN_SEND_INTERVAL:
-                return
-            if new_key == old_key and (now - last_sent) < REBROADCAST_AGE:
-                return
+        if last_sent is not None and (now - last_sent) < MIN_SEND_INTERVAL:
+            return
 
         _channel_last_sent[path] = now
         frames = trigger_n2k_frame(path)

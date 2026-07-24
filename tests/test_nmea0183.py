@@ -59,6 +59,43 @@ class TestHDM(unittest.TestCase):
         self.assertIsNone(nmea0183.process_hdm())
 
 
+# ── Send cadence ──────────────────────────────────────────────────────────────
+
+class _FakeSocket:
+    def __init__(self):
+        self.sends = 0
+
+    def sendto(self, *_):
+        self.sends += 1
+
+
+class TestSendCadence(unittest.TestCase):
+    """The bridge reflects what the instruments provide: a repeated (unchanged) value
+    is still sent, capped only by MIN_SEND_INTERVAL. No dedupe, no re-broadcast timer —
+    matching fastnet2n2k. Guards against reintroducing either."""
+
+    def setUp(self):
+        data_store.live_data.clear()
+        self.h = nmea0183.NMEA0183Handler()
+        self.h._host, self.h._port = "127.0.0.1", 2002
+        self.sock = _FakeSocket()
+
+    def test_repeated_value_is_still_sent(self):
+        import time
+        _set("navigation.speedThroughWater", _kn(6.0))
+        self.h.process_channel("navigation.speedThroughWater", self.sock)
+        time.sleep(nmea0183.MIN_SEND_INTERVAL * 1.2)      # clear the rate cap
+        _set("navigation.speedThroughWater", _kn(6.0))    # identical value
+        self.h.process_channel("navigation.speedThroughWater", self.sock)
+        self.assertEqual(self.sock.sends, 2)
+
+    def test_rate_cap_still_applies(self):
+        _set("navigation.speedThroughWater", _kn(6.0))
+        self.h.process_channel("navigation.speedThroughWater", self.sock)
+        self.h.process_channel("navigation.speedThroughWater", self.sock)  # within cap
+        self.assertEqual(self.sock.sends, 1)
+
+
 # ── VHW ──────────────────────────────────────────────────────────────────────
 
 class TestVHW(unittest.TestCase):
