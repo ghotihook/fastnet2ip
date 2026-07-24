@@ -240,6 +240,14 @@ CAN Hat option includes 120 Ω termination which is recommended.
 
 **Serial settings**: 28,800 baud, 8 data bits, odd parity, 2 stop bits
 
+> **Raspberry Pi built-in UART (`/dev/ttyAMA*`):** the first open of a Pi's built-in
+> PL011 UART after a boot can leave the hardware at 9600 even though 28,800 was
+> requested — 28,800 is non-standard, so it takes the kernel's `BOTHER` path, which has
+> a known first-open quirk (bytes arrive but nothing decodes; a second run "fixes" it).
+> `fastnet2ip` works around it automatically when opening the port. USB RS-485 adapters
+> (e.g. the DTECH dongle) are not affected. Full diagnosis lives in the sibling
+> `fastnet2n2k` project's `docs/uart_first_open_baud_fix.md`.
+
 ## Output reference
 
 ### NMEA 0183
