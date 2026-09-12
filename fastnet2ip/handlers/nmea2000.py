@@ -2,7 +2,8 @@
 
 pyfastnet v3 emits {signalk_path: SI_value}, and NMEA 2000 is SI (radians, m/s,
 Kelvin, Pascals, metres), so values pass straight through — no conversion. T/M
-reference comes from the path; position arrives as an object.
+reference comes from the path; position arrives as an object. The B&G raw sensor
+channels are the exception: they are sensor counts, and go out as counts.
 """
 
 import argparse
@@ -42,6 +43,7 @@ _hb_seq = 0
 _encoder = NMEA2000Encoder(N2KFormat.CAN_FRAME_ASCII)
 
 _PGN_NAMES: dict[int, str] = {
+    127237: "Heading/Track Control",
     127245: "Rudder",
     127250: "Vessel Heading",
     127251: "Rate of Turn",
@@ -58,17 +60,8 @@ _PGN_NAMES: dict[int, str] = {
     130306: "Wind Data",
     130312: "Temperature",
     130314: "Pressure",
-    65280:  "Proprietary: Raw Wind",
-    65281:  "Proprietary: Raw Heading",
-    65282:  "Proprietary: Raw Boatspeed",
+    130824: "B&G Key-Value (raw sensors)",
 }
-
-# Proprietary PGN manufacturer header: B&G (code 381), Marine industry (code 4).
-_PROP_MFR_HDR = struct.pack('<H', (4 << 13) | 381)
-
-
-def _p_u16(val) -> int:
-    return 0xFFFF if val is None else int(val) & 0xFFFF
 
 
 def _pgn_label(msg: str) -> str:
@@ -93,15 +86,29 @@ def _fmt_ydwg(frames: list[bytes], _pgn: int, _src: int) -> list[str]:
     return [f"{ts} R {frame.decode()}" for frame in frames]
 
 
+def _pcdin_payloads(frames: list[bytes], pgn: int) -> list[bytes]:
+    """The payload(s) PCDIN carries for one encoded message.
+
+    A PCDIN sentence holds a whole message — SeaSmart's data field "can contain
+    assembled fast packets", and Signal K's parser reads it as the payload directly —
+    so a fast-packet PGN is reassembled rather than sent frame by frame: drop each
+    frame's sequence byte and the first frame's length byte.
+    """
+    data = [bytes.fromhex("".join(frame.decode().split()[1:])) for frame in frames]
+    is_fast = getattr(n2k_pgns, f"is_fast_pgn_{pgn}", None)
+    if not (is_fast and is_fast()):
+        return data
+    joined = b"".join(d[1:] for d in data)
+    return [joined[1:1 + joined[0]]]
+
+
 def _fmt_pcdin(frames: list[bytes], pgn: int, src: int) -> list[str]:
     now = datetime.now()
     seconds_since_midnight = now.hour * 3600 + now.minute * 60 + now.second
     ms_midnight = seconds_since_midnight * 1000 + now.microsecond // 1000
     result = []
-    for frame in frames:
-        parts = frame.decode().split()
-        data_hex = "".join(parts[1:])
-        body = f"PCDIN,{pgn:06X},{ms_midnight:08X},{src:02X},{data_hex}"
+    for payload in _pcdin_payloads(frames, pgn):
+        body = f"PCDIN,{pgn:06X},{ms_midnight:08X},{src:02X},{payload.hex().upper()}"
         cs = 0
         for c in body:
             cs ^= ord(c)
@@ -121,14 +128,19 @@ def _next_sid() -> int:
     return _sid
 
 
-def _n2k(pgn: int, **fields) -> list[str] | None:
-    decode_fn = getattr(n2k_pgns, f"decode_pgn_{pgn}", None)
+def _n2k(pgn: int, variant: str | None = None, priority: int | None = None,
+         **fields) -> list[str] | None:
+    """Build, encode and format one PGN. ``variant`` picks one of several layouts that
+    share a PGN number (proprietary PGNs, e.g. "bGKeyValueData"); ``priority``
+    overrides N2K_PRI for this message."""
+    name = f"decode_pgn_{pgn}_{variant}" if variant else f"decode_pgn_{pgn}"
+    decode_fn = getattr(n2k_pgns, name, None)
     if decode_fn is None:
-        logger.error(f"No nmea2000 decode function for PGN {pgn}")
+        logger.error(f"No nmea2000 decode function {name}")
         return None
     msg = decode_fn(0, 0)
     msg.source    = N2K_SRC
-    msg.priority  = N2K_PRI
+    msg.priority  = N2K_PRI if priority is None else priority
     msg.timestamp = datetime.now(timezone.utc)
     for f in msg.fields:
         if f.id in fields:
@@ -384,27 +396,82 @@ def process_xte():
     return _n2k(129283, sid=_next_sid(), xte=xte)
 
 
-# Raw (pre-calibration) sensor values → B&G proprietary PGNs (opaque u16 counts).
-def _prop_raw_wind_speed() -> list[str] | None:
-    ws = get_live_data("bandg.wind.rawSpeedApparent")
-    wa = get_live_data("bandg.wind.rawAngleApparent")
-    if ws is None and wa is None:
+# ── Autopilot (127237 Heading/Track Control) ──────────────────────────────────
+# The same mapping as fastnet2n2k. steering.autopilot.state → 127237 steeringMode.
+# The standard has no wind mode, so wind steers as Heading Control, like compass:
+# the pilot is holding a heading either way. B&G "Power" is steering from the +/-
+# buttons, i.e. non-follow-up.
+_STEERING_MODE = {
+    "standby":       "Main Steering",
+    "auto":          "Heading Control",
+    "wind":          "Heading Control",
+    "directControl": "Non-Follow-Up Device",
+    "route":         "Track Control",
+}
+
+# The 127237 fields Fastnet doesn't carry, sent as not-available rather than left at
+# the blank template's zeros — which would claim e.g. "rudder limit not exceeded" and
+# a 0° track. Lookup fields can't take None, so they get their all-ones raw value.
+_AUTOPILOT_UNKNOWN = {
+    "rudderLimitExceeded": 3, "offHeadingLimitExceeded": 3,     # 2-bit lookups
+    "offTrackLimitExceeded": 3, "override": 3,
+    "turnMode": 7, "commandedRudderDirection": 7,               # 3-bit lookups
+    **dict.fromkeys(("commandedRudderAngle", "track", "rudderLimit", "offHeadingLimit",
+                     "radiusOfTurnOrder", "rateOfTurnOrder", "offTrackLimit")),
+}
+
+
+def process_autopilot():
+    mode = _STEERING_MODE.get(get_live_data("steering.autopilot.state"))
+    if mode is None:
         return None
-    return _n2k_proprietary(65280, _PROP_MFR_HDR + struct.pack('<HH', _p_u16(ws), _p_u16(wa)))
+    # The compass target outlives the engagement — it stays on the wire in standby
+    # while the boat turns away from it — so only send it while the pilot is steering
+    # to a heading.
+    target = None
+    if mode in ("Heading Control", "Track Control"):
+        target = _wrap(get_live_data("steering.autopilot.target.headingMagnetic"))
+    return _n2k(127237, steeringMode=mode, headingReference="Magnetic",
+                headingToSteerCourse=target,
+                vesselHeading=_wrap(get_live_data("navigation.headingMagnetic")),
+                **_AUTOPILOT_UNKNOWN)
 
 
-def _prop_raw_heading() -> list[str] | None:
-    hd = get_live_data("bandg.navigation.rawHeading")
-    if hd is None:
-        return None
-    return _n2k_proprietary(65281, _PROP_MFR_HDR + struct.pack('<H', _p_u16(hd)))
+# ── B&G raw sensor channels (130824 key-value) ────────────────────────────────
+# The uncalibrated sensor readings, for logging. The same frames fastnet2n2k sends,
+# so one decoder reads both bridges: B&G's own proprietary key-value PGN, in B&G's
+# layout — header 7D 99 (code 381, marine), then a 12-bit key and 4-bit byte length,
+# then the value. B&G's keys are Fastnet channel numbers, so each raw channel keeps
+# its own. Values are the signed 16-bit counts Fastnet carries (format 0x0A),
+# unscaled. One key per message fits a single CAN frame. Sent at full rate (exempt
+# from MIN_SEND_INTERVAL) and the lowest priority, so the volume never delays
+# navigation data. Full description: fastnet2n2k's docs/bandg_130824_raw_channels.md.
+_BANDG_RAW_KEYS = {
+    "bandg.navigation.rawSpeedThroughWater": 0x42,   # Boatspeed (Raw)
+    "bandg.navigation.rawHeading":           0x4A,   # Heading (Raw)
+    "bandg.wind.rawSpeedApparent":           0x4E,   # Apparent Wind Speed (Raw)
+    "bandg.wind.rawAngleApparent":           0x52,   # Apparent Wind Angle (Raw)
+}
+_BANDG_HEADER = {"manufacturerCode": 381, "reserved_11": 3, "industryCode": 4}   # 7D 99
+RAW_PRI = 7
+_range_warned: set = set()
 
 
-def _prop_raw_boatspeed() -> list[str] | None:
-    bs = get_live_data("bandg.navigation.rawSpeedThroughWater")
-    if bs is None:
-        return None
-    return _n2k_proprietary(65282, _PROP_MFR_HDR + struct.pack('<H', _p_u16(bs)))
+def _bandg_raw(path, key):
+    """The trigger that sends ``path`` as B&G key ``key``."""
+    def process_bandg_raw():
+        value = get_live_data(path)
+        if value is None:
+            return None
+        raw = round(value)
+        if not -0x8000 <= raw <= 0x7FFF:
+            if path not in _range_warned:   # full rate: warn once, not per update
+                _range_warned.add(path)
+                logger.warning(f"{path} = {value} doesn't fit signed 16 bits — not sent")
+            return None
+        return _n2k(130824, "bGKeyValueData", priority=RAW_PRI, **_BANDG_HEADER,
+                    key=key, length=2, value=raw & 0xFFFF)
+    return process_bandg_raw
 
 
 # ── Channel map ───────────────────────────────────────────────────────────────
@@ -439,10 +506,9 @@ _CHANNEL_MAP: dict[str, Callable[[], list[str] | None] | str] = {
     "environment.current.setMagnetic":              process_set_drift,
     "environment.current.setTrue":                  process_set_drift,
     "environment.current.drift":                    "covered by current.set* (same frame)",
-    "bandg.wind.rawSpeedApparent":                  _prop_raw_wind_speed,
-    "bandg.wind.rawAngleApparent":                  "covered by rawSpeedApparent (PGN 65280)",
-    "bandg.navigation.rawHeading":                  _prop_raw_heading,
-    "bandg.navigation.rawSpeedThroughWater":        _prop_raw_boatspeed,
+    "steering.autopilot.state":                     process_autopilot,
+    "steering.autopilot.target.headingMagnetic":    "covered by steering.autopilot.state (same frame)",
+    **{path: _bandg_raw(path, key) for path, key in _BANDG_RAW_KEYS.items()},
 }
 
 
@@ -521,9 +587,11 @@ class NMEA2000Handler(OutputHandler):
         # the wire — capped only by MIN_SEND_INTERVAL so a fast-updating path can't
         # flood UDP. No dedupe: the bridge reflects what the instruments provide.
         # (The 60s gateway-identity heartbeat in tick() is unrelated to this.)
+        # The raw sensor channels skip the cap: they go out at full rate, for logging.
         now = time.monotonic()
         last_sent = _channel_last_sent.get(path)
-        if last_sent is not None and (now - last_sent) < MIN_SEND_INTERVAL:
+        if (path not in _BANDG_RAW_KEYS and last_sent is not None
+                and (now - last_sent) < MIN_SEND_INTERVAL):
             return
 
         _channel_last_sent[path] = now

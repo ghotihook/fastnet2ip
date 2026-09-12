@@ -95,6 +95,27 @@ class TestSendCadence(unittest.TestCase):
         self.h.process_channel("navigation.speedThroughWater", self.sock)  # within cap
         self.assertEqual(self.sock.sends, 1)
 
+    def test_raw_channels_skip_the_cap(self):
+        """Raw sensor channels are for logging and go out at full rate."""
+        for path in nmea0183._RAW_PATHS:
+            _set(path, 1234.0)
+            self.h.process_channel(path, self.sock)
+            self.h.process_channel(path, self.sock)   # would be within the cap
+        self.assertEqual(self.sock.sends, 2 * len(nmea0183._RAW_PATHS))
+
+
+class TestRawHeadingXDR(unittest.TestCase):
+    def setUp(self):
+        data_store.live_data.clear()
+
+    def test_raw_heading_sentence(self):
+        _set("bandg.navigation.rawHeading", -8246.0)
+        self.assertIn("IIXDR,A,-8246.00,V,RAW_HDG", nmea0183.process_xdr_raw_heading())
+
+    def test_raw_heading_is_mapped(self):
+        self.assertIs(nmea0183._TRIGGER_MAP["bandg.navigation.rawHeading"],
+                      nmea0183.process_xdr_raw_heading)
+
 
 # ── VHW ──────────────────────────────────────────────────────────────────────
 

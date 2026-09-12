@@ -185,7 +185,7 @@ To upgrade later:
 | Argument | Default | Description |
 |---|---|---|
 | `--n2k-src N` | `201` | N2K source address 0–253 (accepts hex: `0xC9`) |
-| `--n2k-pri N` | `4` | Message priority 0 (highest) – 7 (lowest) |
+| `--n2k-pri N` | `4` | Message priority 0 (highest) – 7 (lowest); the raw sensor channels always go at 7 |
 | `--n2k-format FMT` | `ydwg` | Wire format: `ydwg` or `pcdin` (see below) |
 
 ### Avoiding feedback loops: `--ignore-gps` and `--ignore-heading`
@@ -214,7 +214,7 @@ If the bridge is the **only** source of that data on your network, omit them.
 | Fastnet channel | NMEA 0183 | NMEA 2000 |
 |---|---|---|
 | Heading | HDM / HDT | PGN 127250 |
-| Heading (Raw) | — | PGN 65281 |
+| Heading (Raw) | XDR `RAW_HDG` | PGN 130824 (key 74) |
 
 ## Hardware
 
@@ -246,6 +246,19 @@ CAN Hat option includes 120 Ω termination which is recommended.
 > a known first-open quirk (bytes arrive but nothing decodes; a second run "fixes" it).
 > `fastnet2ip` works around it automatically when opening the port. USB RS-485 adapters
 > (e.g. the DTECH dongle) are not affected. Full diagnosis: [`docs/uart_first_open_baud_fix.md`](docs/uart_first_open_baud_fix.md).
+
+> **RS485 boards with automatic direction control (e.g. the Waveshare RS485 CAN
+> HAT):** the transceiver switches itself to *transmit* whenever the Pi's TX pin is
+> low, so anything that pulls that pin low reaches the Fastnet bus, even though
+> fastnet2ip never transmits. On the HAT the pin is GPIO14, the Pi's primary UART
+> (`serial0`):
+> - **Turn off the serial console.** In `sudo raspi-config` → Interface Options →
+>   Serial Port, answer **No** to the login shell and **Yes** to the serial hardware.
+>   Otherwise Linux writes its boot messages, and a login prompt, onto the Fastnet bus.
+> - **If the instruments raise an alarm every time the Pi reboots**, pin TX high from
+>   the firmware with `gpio=14=op,dh` in `/boot/firmware/config.txt`.
+>
+> Why, and how to confirm it on the wire: [`docs/rs485_tx_boot_glitch.md`](docs/rs485_tx_boot_glitch.md).
 
 ## Output reference
 
@@ -282,11 +295,13 @@ XDR transducers:
 | `RAW_WIND_A` | Apparent wind angle raw sensor value |
 | `RAW_WIND_S` | Apparent wind speed raw sensor value |
 | `RAW_BSP` | Boatspeed raw sensor value |
+| `RAW_HDG` | Heading raw sensor value |
 
 ### NMEA 2000
 
 | PGN | Name |
 |---|---|
+| 127237 | Heading/Track Control (autopilot mode and target) |
 | 127245 | Rudder |
 | 127250 | Vessel Heading |
 | 127251 | Rate of Turn |
@@ -303,13 +318,47 @@ XDR transducers:
 | 130306 | Wind Data (apparent, true boat-ref, true ground-ref) |
 | 130312 | Temperature (sea + air) |
 | 130314 | Pressure |
-| 65280 | Proprietary: raw wind speed, wind angle |
-| 65281 | Proprietary: raw heading |
-| 65282 | Proprietary: raw boatspeed |
+| 130824 | B&G key-value data: raw boatspeed, heading, wind speed and angle |
+
+**Autopilot (127237).** The pilot's mode is sent as the steering mode, with the
+compass target as heading-to-steer — the same as fastnet2n2k:
+
+| Pilot mode | Steering mode | Heading-to-steer |
+|---|---|---|
+| Standby | Main Steering | not available |
+| Compass | Heading Control | compass target |
+| Wind | Heading Control | compass target |
+| Power | Non-Follow-Up Device | not available |
+| NMEA WP | Track Control | compass target |
+
+Wind and compass look the same on the wire, since the standard has no wind mode. The
+target is dropped in standby and Power, even though Fastnet keeps sending the last
+one. It is a status broadcast only; nothing here listens for commands.
+
+**Raw sensor channels (130824).** The uncalibrated readings, for logging, in B&G's own
+proprietary key-value PGN — byte for byte the frames fastnet2n2k sends, so one
+decoder reads both. After the B&G header (`7D 99`) comes a 12-bit key and 4-bit
+length, then the value. The keys are Fastnet channel numbers, as B&G's own are:
+
+| Key | Fastnet channel |
+|---|---|
+| 66 (0x42) | Boatspeed (Raw) |
+| 74 (0x4A) | Heading (Raw) |
+| 78 (0x4E) | Apparent Wind Speed (Raw) |
+| 82 (0x52) | Apparent Wind Angle (Raw) |
+
+Values are signed 16-bit counts exactly as Fastnet carries them, one key per message
+(a single CAN frame), sent at full rate and at priority 7. The frame byte by byte, the
+reasoning and a decoder are in fastnet2n2k's
+[`docs/bandg_130824_raw_channels.md`](https://github.com/ghotihook/fastnet2n2k/blob/main/docs/bandg_130824_raw_channels.md).
+(These replace the PGNs 65280–65282 of earlier versions.)
 
 **Wire formats** (`--n2k-format`):
-- `ydwg` — Yacht Devices RAW UDP: `HH:MM:SS.mmm R XXXXXXXX DD DD DD...`
-- `pcdin` — PCDIN sentences for Signal K server UDP input: `$PCDIN,PPPPPP,TTTTTTTT,SS,DDDD...*CC`
+- `ydwg` — Yacht Devices RAW UDP: `HH:MM:SS.mmm R XXXXXXXX DD DD DD...`, one line per
+  CAN frame
+- `pcdin` — PCDIN sentences for Signal K server UDP input:
+  `$PCDIN,PPPPPP,TTTTTTTT,SS,DDDD...*CC`, one sentence per message; fast-packet PGNs
+  carry their whole reassembled payload
 
 ## How it works
 
@@ -331,9 +380,11 @@ Serial port / hex file
 
 A message is sent on **every** channel update — a repeated value is still live data
 worth putting on the wire — rate-capped at 20 Hz per channel so a fast path can't
-flood UDP. There is no dedupe and no periodic re-broadcast: the bridge reflects what
-the instruments provide, and when a source goes quiet its output stops (consumers
-time it out themselves). This matches the sibling `fastnet2n2k` bridge's cadence.
+flood UDP. The four raw sensor channels are the exception: they are for logging, and
+go out at full rate. There is no dedupe and no periodic re-broadcast: the bridge
+reflects what the instruments provide, and when a source goes quiet its output stops
+(consumers time it out themselves). This matches the sibling `fastnet2n2k` bridge's
+cadence.
 
 To add a new output format, implement `OutputHandler` in `fastnet2ip/handlers/`
 and add it to `_HANDLERS` in `fastnet2ip/__main__.py`.

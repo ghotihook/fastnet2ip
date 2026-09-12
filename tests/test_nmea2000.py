@@ -34,7 +34,17 @@ EXPECTED_N2K_PGNS = {
     130314,  # Barometric pressure
     129026,  # COG / SOG
     128275,  # Distance log (fast packet)
+    127237,  # Autopilot mode (standby in this capture)
+    130824,  # B&G key-value: raw sensor channels
 }
+
+
+def _payload_from_lines(lines):
+    """Reassemble one fast-packet message from its YDWG lines: drop each frame's
+    sequence byte and the first frame's length byte."""
+    data = [bytes.fromhex("".join(line.strip().split()[3:])) for line in lines]
+    joined = b"".join(d[1:] for d in data)
+    return joined[1:1 + joined[0]]
 
 
 def _pgn_from_can_id(can_id_hex: str) -> int:
@@ -109,23 +119,35 @@ class TestSmoke(unittest.TestCase):
         bad = [m for m in self.n2k if not pattern.match(m)]
         self.assertFalse(bad, f"Malformed N2K messages: {bad[:3]}")
 
-    def test_raw_sensor_pgns_present_and_valid(self):
-        for pgn in (65280, 65281, 65282):
-            self.assertIn(pgn, self.pgns, f"PGN {pgn} (proprietary raw) not found")
-        B_AND_G_HDR = bytes([0x7D, 0x81])
-        for pgn in (65280, 65281, 65282):
-            msgs = [
-                m for m in self.n2k
-                if len(m.strip().split()) >= 3
-                and m.strip().split()[1] == 'R'
-                and _pgn_from_can_id(m.strip().split()[2]) == pgn
-            ]
-            self.assertTrue(msgs, f"No messages for PGN {pgn}")
-            for msg in msgs:
-                parts = msg.strip().split()
-                payload = bytes.fromhex(''.join(parts[3:]))
-                self.assertEqual(payload[:2], B_AND_G_HDR,
-                                 f"PGN {pgn}: expected B&G header 7D 81, got {payload[:2].hex()}")
+    def test_raw_sensor_channels_are_bandg_key_value(self):
+        """Raw channels go out as B&G key-value data (PGN 130824), the same frames
+        fastnet2n2k sends: header 7D 99, one key per message, one CAN frame each,
+        at priority 7 — and all four keys appear in the capture."""
+        raw = [
+            m.strip().split() for m in self.n2k
+            if len(m.strip().split()) >= 3
+            and m.strip().split()[1] == 'R'
+            and _pgn_from_can_id(m.strip().split()[2]) == 130824
+        ]
+        self.assertTrue(raw, "No PGN 130824 raw-channel messages")
+        keys = set()
+        for parts in raw:
+            self.assertEqual(int(parts[2], 16) >> 26, 7, "raw channels go at priority 7")
+            data = bytes.fromhex(''.join(parts[3:]))
+            self.assertEqual(data[0] & 0x1F, 0, "one CAN frame per message")
+            payload = data[2:2 + data[1]]
+            self.assertEqual(payload[:2], bytes([0x7D, 0x99]))
+            key_len = int.from_bytes(payload[2:4], "little")
+            self.assertEqual(key_len >> 12, 2, "value length 2")
+            keys.add(key_len & 0xFFF)
+        self.assertEqual(keys, {0x42, 0x4A, 0x4E, 0x52})
+
+    def test_raw_value_bytes_match_fastnet2n2k(self):
+        """-8246 raw heading → 7D 99 4A 20 CA DF, byte for byte what fastnet2n2k
+        sends (signed 16-bit, little-endian)."""
+        update_live_data("bandg.navigation.rawHeading", -8246)
+        [line] = bridge._CHANNEL_MAP["bandg.navigation.rawHeading"]()
+        self.assertEqual(_payload_from_lines([line]), bytes.fromhex("7D994A20CADF"))
 
     def test_no_output_without_data(self):
         data_store.live_data.clear()
@@ -259,6 +281,111 @@ class TestReferenceFromPath(unittest.TestCase):
     def test_set_drift_set_absent_skips_silently(self):
         update_live_data("environment.current.drift", 0.5 * KN_MS)
         self.assertIsNone(bridge.process_set_drift())
+
+
+class TestRawFullRate(unittest.TestCase):
+    """Raw channels skip MIN_SEND_INTERVAL; everything else is still capped."""
+
+    def setUp(self):
+        data_store.live_data.clear()
+        bridge._channel_last_sent.clear()
+        self.h = _make_handler()
+        self.sent = []
+        sent = self.sent
+
+        class Sock:
+            def sendto(self, data, addr):
+                sent.append(data)
+        self.sock = Sock()
+
+    def test_raw_channel_skips_the_rate_cap(self):
+        update_live_data("bandg.navigation.rawHeading", 1234)
+        self.h.process_channel("bandg.navigation.rawHeading", self.sock)
+        self.h.process_channel("bandg.navigation.rawHeading", self.sock)
+        self.assertEqual(len(self.sent), 2)
+
+    def test_standard_channel_is_still_capped(self):
+        update_live_data("navigation.speedThroughWater", 3.0)
+        self.h.process_channel("navigation.speedThroughWater", self.sock)
+        self.h.process_channel("navigation.speedThroughWater", self.sock)
+        self.assertEqual(len(self.sent), 1)
+
+
+class TestAutopilot(unittest.TestCase):
+    """steering.autopilot.state → PGN 127237, as fastnet2n2k sends it."""
+
+    def setUp(self):
+        data_store.live_data.clear()
+        self.addCleanup(setattr, bridge, "_n2k_formatter", bridge._n2k_formatter)
+        bridge._n2k_formatter = bridge._fmt_ydwg
+
+    @staticmethod
+    def _decoded(lines):
+        from nmea2000 import pgns as n2k_pgns
+        payload = _payload_from_lines(lines)
+        msg = n2k_pgns.decode_pgn_127237(int.from_bytes(payload, "little"), len(payload) * 8)
+        return {f.id: f.value for f in msg.fields}
+
+    def test_engaged_sends_mode_and_target(self):
+        update_live_data("steering.autopilot.state", "auto")
+        update_live_data("steering.autopilot.target.headingMagnetic", math.radians(331))
+        fields = self._decoded(bridge.process_autopilot())
+        self.assertEqual(fields["steeringMode"], "Heading Control")
+        self.assertEqual(fields["headingReference"], "Magnetic")
+        self.assertAlmostEqual(math.degrees(fields["headingToSteerCourse"]), 331, places=1)
+        for field in bridge._AUTOPILOT_UNKNOWN:
+            self.assertIsNone(fields[field], f"{field} should be not-available")
+
+    def test_standby_sends_no_target(self):
+        """Fastnet keeps sending the old target after disengaging; it isn't passed on."""
+        update_live_data("steering.autopilot.state", "standby")
+        update_live_data("steering.autopilot.target.headingMagnetic", math.radians(331))
+        fields = self._decoded(bridge.process_autopilot())
+        self.assertEqual(fields["steeringMode"], "Main Steering")
+        self.assertIsNone(fields["headingToSteerCourse"])
+
+    def test_power_steer_is_non_follow_up(self):
+        update_live_data("steering.autopilot.state", "directControl")
+        self.assertEqual(self._decoded(bridge.process_autopilot())["steeringMode"],
+                         "Non-Follow-Up Device")
+
+    def test_unknown_state_sends_nothing(self):
+        self.assertIsNone(bridge.process_autopilot())
+
+
+class TestPcdin(unittest.TestCase):
+    """PCDIN carries one whole message per sentence: Signal K's parser reads the data
+    field as the payload, so fast-packet PGNs must be reassembled, not split per CAN
+    frame with their sequence bytes."""
+
+    def setUp(self):
+        data_store.live_data.clear()
+        self.addCleanup(setattr, bridge, "_n2k_formatter", bridge._n2k_formatter)
+        bridge._n2k_formatter = bridge._fmt_pcdin
+
+    @staticmethod
+    def _data(sentence):
+        return bytes.fromhex(sentence.split(",")[4].split("*")[0])
+
+    def test_fast_packet_pgn_is_one_sentence_with_the_whole_payload(self):
+        update_live_data("navigation.log", 22835048.0)
+        update_live_data("navigation.trip.log", 1000.0)
+        [sentence] = bridge.process_distance_log()
+        payload = self._data(sentence)
+        self.assertEqual(len(payload), 14)                                    # 128275
+        self.assertEqual(int.from_bytes(payload[6:10], "little"), 22835048)   # log, m
+        self.assertEqual(int.from_bytes(payload[10:14], "little"), 1000)      # trip, m
+
+    def test_single_frame_pgn_is_unchanged(self):
+        update_live_data("navigation.speedThroughWater", 3.0)
+        [sentence] = bridge.process_boatspeed()
+        self.assertEqual(len(self._data(sentence)), 8)
+
+    def test_raw_channel_payload(self):
+        update_live_data("bandg.navigation.rawHeading", -8246)
+        [sentence] = bridge._CHANNEL_MAP["bandg.navigation.rawHeading"]()
+        self.assertTrue(sentence.startswith("$PCDIN,01FF08,"))
+        self.assertEqual(self._data(sentence), bytes.fromhex("7D994A20CADF"))
 
 
 if __name__ == "__main__":

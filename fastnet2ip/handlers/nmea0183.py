@@ -265,6 +265,22 @@ def process_xdr_raw_bsp():
     return _sentence(f"IIXDR,G,{raw_str},,RAW_BSP")
 
 
+def process_xdr_raw_heading():
+    rhd = get_live_data("bandg.navigation.rawHeading")
+    rhd_str = f"{rhd:.2f}" if rhd is not None else ""
+    return _sentence(f"IIXDR,A,{rhd_str},V,RAW_HDG")
+
+
+# The raw channels are for logging, so they skip MIN_SEND_INTERVAL and go out at
+# full rate — matching the NMEA 2000 output and fastnet2n2k.
+_RAW_PATHS = frozenset({
+    "bandg.wind.rawAngleApparent",
+    "bandg.wind.rawSpeedApparent",
+    "bandg.navigation.rawSpeedThroughWater",
+    "bandg.navigation.rawHeading",
+})
+
+
 # ── Channel map ───────────────────────────────────────────────────────────────
 
 _TRIGGER_MAP = {
@@ -296,6 +312,7 @@ _TRIGGER_MAP = {
     "bandg.wind.rawAngleApparent":         process_xdr_raw_wind_angle,
     "bandg.wind.rawSpeedApparent":         process_xdr_raw_wind_speed,
     "bandg.navigation.rawSpeedThroughWater": process_xdr_raw_bsp,
+    "bandg.navigation.rawHeading":         process_xdr_raw_heading,
 }
 
 
@@ -340,9 +357,11 @@ class NMEA0183Handler(OutputHandler):
         # Send on every update — a repeated value is still live data worth putting on
         # the wire — capped only by MIN_SEND_INTERVAL so a fast-updating path can't
         # flood UDP. No dedupe: the bridge reflects what the instruments provide.
+        # The raw sensor channels skip the cap (_RAW_PATHS).
         now = datetime.now(timezone.utc)
         last_sent = self._last_sent.get(path)
-        if last_sent is not None and (now - last_sent) < timedelta(seconds=MIN_SEND_INTERVAL):
+        if (path not in _RAW_PATHS and last_sent is not None
+                and (now - last_sent) < timedelta(seconds=MIN_SEND_INTERVAL)):
             return
 
         message = _trigger(path)
