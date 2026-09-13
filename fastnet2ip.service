@@ -1,29 +1,33 @@
-# sudo cp fastnet2ip.service /etc/systemd/system/
-# sudo systemctl daemon-reload
-# sudo systemctl enable fastnet2ip
-# sudo systemctl start fastnet2ip
+# systemd unit for fastnet2ip — the same template the README walks through.
 #
-# sudo systemctl status fastnet2ip
-# sudo systemctl stop fastnet2ip
-# sudo systemctl restart fastnet2ip
-# journalctl -u fastnet2ip -f
+# Install globally with pipx (--global lands the command in /usr/local/bin, where a
+# root-run service can reach it; needs pipx >= 1.5):
+#   sudo apt install pipx
+#   sudo pipx install --global fastnet2ip
+#
+# Edit the serial device (three places) and pick ONE ExecStart, then:
+#   sudo cp fastnet2ip.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable fastnet2ip
+#   sudo systemctl start fastnet2ip
+#   journalctl -u fastnet2ip -f
+#
+# Upgrade later with: sudo pipx upgrade --global fastnet2ip
 
 [Unit]
 Description=fastnet2ip Service
 ####################################### CHANGE THIS IF PORT CHANGES
-After=dev-ttySTM3.device
-BindsTo=dev-ttySTM3.device
+After=dev-ttyUSB0.device
+BindsTo=dev-ttyUSB0.device
 
 [Service]
 Type=simple
 User=root
-####################################### CHANGE THIS PATH to your install
-# Recommended: a dedicated venv, e.g.  python3 -m venv /opt/fastnet2ip && /opt/fastnet2ip/bin/pip install fastnet2ip
-WorkingDirectory=/opt/fastnet2ip
-# NMEA 2000 output (uncomment one ExecStart only):
-ExecStart=/opt/fastnet2ip/bin/fastnet2ip --output nmea2000 --serial /dev/ttySTM3 --udp-port 2000 --n2k-format ydwg --n2k-src 201 --n2k-pri 4 --log-level INFO
+# Uncomment ONE ExecStart line for the output mode you want:
+# NMEA 2000 output:
+ExecStart=/usr/local/bin/fastnet2ip --output nmea2000 --serial /dev/ttyUSB0 --udp-port 2000 --n2k-format ydwg --n2k-src 201 --n2k-pri 4 --log-level INFO
 # NMEA 0183 output:
-#ExecStart=/opt/fastnet2ip/bin/fastnet2ip --output nmea0183 --serial /dev/ttySTM3 --udp-port 2002 --log-level INFO
+#ExecStart=/usr/local/bin/fastnet2ip --output nmea0183 --serial /dev/ttyUSB0 --udp-port 2002 --log-level INFO
 Restart=always
 RestartSec=10
 
@@ -34,13 +38,11 @@ MemoryMax=128M
 MemoryHigh=96M
 TimeoutStopSec=30
 
-
 # === LOGGING ===
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=fastnet2ip
 Environment=PYTHONUNBUFFERED=1
-
 
 [Install]
 WantedBy=multi-user.target

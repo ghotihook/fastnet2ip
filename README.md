@@ -123,7 +123,7 @@ Type=simple
 User=root
 # Uncomment ONE ExecStart line for the output mode you want:
 # NMEA 2000 output:
-ExecStart=/usr/local/bin/fastnet2ip --output nmea2000 --serial /dev/ttyUSB0 --udp-port 2000 --n2k-format ydwg --n2k-src 201 --n2k-pri 4 --ignore-gps --log-level INFO
+ExecStart=/usr/local/bin/fastnet2ip --output nmea2000 --serial /dev/ttyUSB0 --udp-port 2000 --n2k-format ydwg --n2k-src 201 --n2k-pri 4 --log-level INFO
 # NMEA 0183 output:
 #ExecStart=/usr/local/bin/fastnet2ip --output nmea0183 --serial /dev/ttyUSB0 --udp-port 2002 --log-level INFO
 Restart=always
