@@ -16,9 +16,8 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 
 from nmea2000 import pgns as n2k_pgns
-from nmea2000.encoder import NMEA2000Encoder
+from nmea2000.encoder import create_encoder
 from nmea2000.input_formats import N2KFormat
-import nmea2000.encoder_formats  # noqa: F401 — registers format handlers on import
 
 from fastnet2ip.core.data_store import get_live_data
 from fastnet2ip.handlers.base import OutputHandler
@@ -40,7 +39,7 @@ _channel_last_sent: dict = {}
 _sid = 0
 _hb_seq = 0
 
-_encoder = NMEA2000Encoder(N2KFormat.CAN_FRAME_ASCII)
+_encoder = create_encoder(N2KFormat.CAN_FRAME_ASCII)
 
 _PGN_NAMES: dict[int, str] = {
     127237: "Heading/Track Control",

@@ -7,7 +7,7 @@ name = "fastnet2ip"
 dynamic = ["version"]
 description = "Read B&G Fastnet serial data, decode it, and broadcast it over UDP as NMEA 0183 or NMEA 2000"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { file = "LICENSE" }
 authors = [{ name = "ghotihook" }]
 keywords = ["fastnet", "bandg", "nmea", "nmea0183", "nmea2000", "marine", "sailing", "signalk"]
@@ -19,7 +19,6 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -29,7 +28,7 @@ classifiers = [
 dependencies = [
     "pyserial>=3.5",
     "pyfastnet>=3.0.0",
-    "nmea2000>=2026.4.2",
+    "nmea2000>=2026.8.1",
 ]
 
 [project.urls]

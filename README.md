@@ -10,7 +10,7 @@ OpenCPN, chart plotters, and other navigation software on your network.
 | NMEA 0183 | `--output nmea0183` *(default)* | 2002 | Chart plotters, OpenCPN, most navigation software |
 | NMEA 2000 | `--output nmea2000` | 2000 | Actisense, Yacht Devices, Signal K server (via UDP) |
 
-Runs on Raspberry Pi, macOS, or Linux. Requires **Python 3.10+**.
+Runs on Raspberry Pi, macOS, or Linux. Requires **Python 3.11+**.
 
 ## Quick start
 
