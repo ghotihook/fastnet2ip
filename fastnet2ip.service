@@ -12,7 +12,7 @@
 #   sudo systemctl start fastnet2ip
 #   journalctl -u fastnet2ip -f
 #
-# Upgrade later with: sudo pipx upgrade --global fastnet2ip
+# Upgrade later with: sudo pipx upgrade --global fastnet2ip && sudo systemctl restart fastnet2ip
 
 [Unit]
 Description=fastnet2ip Service

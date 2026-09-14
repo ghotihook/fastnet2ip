@@ -12,14 +12,28 @@ OpenCPN, chart plotters, and other navigation software on your network.
 
 Runs on Raspberry Pi, macOS, or Linux. Requires **Python 3.11+**.
 
-## Quick start
+## Install
 
-Install the CLI in its own isolated environment with
-[pipx](https://pipx.pypa.io/):
+Install globally with [pipx](https://pipx.pypa.io/) (1.5 or later), so the command
+lands in `/usr/local/bin` for every user and for the systemd service:
 
 ```bash
-pipx install fastnet2ip
+sudo apt install pipx                    # once, if you don't have it (macOS: brew install pipx)
+sudo pipx install --global fastnet2ip
 ```
+
+## Upgrade
+
+```bash
+sudo pipx upgrade --global fastnet2ip
+sudo systemctl restart fastnet2ip        # only if it runs as a service
+```
+
+> Installed without `--global` before? Remove that copy first with
+> `pipx uninstall fastnet2ip`; a per-user install in `~/.local/bin` can shadow the
+> global one.
+
+## Quick start
 
 Run it against your Fastnet serial port:
 
@@ -41,8 +55,6 @@ fastnet2ip --file example1_fastnet_data.txt --output nmea0183 --live-data
 
 > The app can also be invoked as a module: `python3 -m fastnet2ip ...` — equivalent
 > to the `fastnet2ip` command.
-
-To upgrade later: `pipx upgrade fastnet2ip`.
 
 <details>
 <summary>Alternative installs (pip venv / from source)</summary>
@@ -91,19 +103,8 @@ a **physical** NMEA 2000 CAN backbone rather than over the network, use
 For an always-on bridge (e.g. a Raspberry Pi), run `fastnet2ip` under systemd so
 it starts on boot and restarts on failure.
 
-> **Install it globally, not per-user.** A plain `pipx install` goes to a user's
-> `~/.local/bin`, which a root-run service can't rely on. Use `pipx install
-> --global` so the command lands in `/usr/local/bin`.
-
-**1. Install globally with pipx**
-
-```bash
-sudo apt install pipx                        # once, if you don't have it
-sudo pipx install --global fastnet2ip
-```
-
-This gives you `/usr/local/bin/fastnet2ip`, the path the unit below uses.
-(`--global` needs pipx ≥ 1.5.)
+**1. Install globally** as in [Install](#install). That gives you
+`/usr/local/bin/fastnet2ip`, the path the unit below uses.
 
 **2. Create the unit file**
 
@@ -161,8 +162,7 @@ sudo systemctl start fastnet2ip
 sudo journalctl -u fastnet2ip -f      # follow the logs
 ```
 
-To upgrade later:
-`sudo pipx upgrade --global fastnet2ip && sudo systemctl restart fastnet2ip`.
+To upgrade later, see [Upgrade](#upgrade).
 
 ## Command-line options
 
@@ -457,7 +457,7 @@ The version lives in one place — `__version__` in `fastnet2ip/__init__.py` —
    git push origin main --tags
    twine upload dist/*          # needs a PyPI account + API token in ~/.pypirc
    ```
-4. Users upgrade with `pipx upgrade fastnet2ip` (or `pip install --upgrade fastnet2ip`).
+4. Users upgrade with `sudo pipx upgrade --global fastnet2ip` (see [Upgrade](#upgrade)).
 
 > **PyPI never lets you re-upload an existing version** — even a deleted or
 > "yanked" one. If a release has a bug, bump to the next patch version and
